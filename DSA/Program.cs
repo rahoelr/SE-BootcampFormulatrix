@@ -68,3 +68,4 @@ static void FindMinValue(int[] arr)
     Console.WriteLine(minVal);
 
 }
+

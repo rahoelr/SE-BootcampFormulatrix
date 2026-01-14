@@ -12,6 +12,12 @@ string B = "rahul";
 bool result = A.Equals(B);
 Console.WriteLine(result);
 
+//null
+string myNewName = null;
+string resultNew = myNewName ??= "bintang";
+Console.WriteLine("in adalah null test:" + resultNew);
+Console.WriteLine(myNewName);
+
 
 // array
 char[] myChar = new char[5];
