@@ -45,7 +45,7 @@ public class MahasiswaRepository
         return null;
     }
 
-    public Mahasiswa UpdateMahasiswa(int id, string nama, string jurusan)
+    public Mahasiswa UpdateMahasiswa(int id, string nama, string jurusan, string semester)
     {
         Mahasiswa data = GetMahasiswaById(id);
         if (data != null)
@@ -58,6 +58,10 @@ public class MahasiswaRepository
             {
                 data.Jurusan = jurusan;
             } 
+            if (semester != "")
+            {
+                data.Semester = semester;
+            }
                 Console.WriteLine("Data successfully updated.");
             
             return data;
