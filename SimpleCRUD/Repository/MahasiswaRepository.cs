@@ -30,9 +30,16 @@ public class MahasiswaRepository
         Mahasiswa data = GetMahasiswaById(id);
         if (data != null)
         {
-            data.Nama = nama;
-            data.Jurusan = jurusan;
-            Console.WriteLine("Data successfully updated.");
+            if (nama != "")
+            {
+                data.Nama = nama;
+            }
+            if (jurusan != "")
+            {
+                data.Jurusan = jurusan;
+            } 
+                Console.WriteLine("Data successfully updated.");
+            
             return data;
         } else {
             return null;
