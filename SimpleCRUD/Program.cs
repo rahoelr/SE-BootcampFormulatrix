@@ -15,14 +15,15 @@ while (true) {
     switch (choice)
     {
         case "1":
-            Console.Write("Masukkan ID: ");
-            int id = int.Parse(Console.ReadLine());
             Console.Write("Masukkan Nama: ");
             string nama = Console.ReadLine();
             Console.Write("Masukkan Jurusan: ");
             string jurusan = Console.ReadLine();
 
-            Mahasiswa newMhs = new Mahasiswa(id, nama, jurusan);
+            int currentId = mhRepo.getLastId();
+            int nextId = currentId + 1; 
+
+            Mahasiswa newMhs = new Mahasiswa(nextId, nama, jurusan);
             mhRepo.addMahasiswa(newMhs);
             Console.WriteLine("Mahasiswa berhasil ditambahkan.");
             break;
@@ -45,6 +46,15 @@ while (true) {
             mhRepo.UpdateMahasiswa(updateId, newNama, newJurusan);
             break;
         case "4":
+            if (mhRepo.getAllMahasiswa() == null)
+            {
+                break;
+            }
+            foreach (Mahasiswa mhs in mhRepo.getAllMahasiswa())
+
+                {
+                    Console.WriteLine($"ID: {mhs.Id}, Nama: {mhs.Nama}, Jurusan: {mhs.Jurusan}");
+                }
             Console.Write("Masukkan ID Mahasiswa yang akan dihapus: ");
             int deleteId = int.Parse(Console.ReadLine());
             mhRepo.DeleteMahasiswa(deleteId);

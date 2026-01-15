@@ -7,9 +7,29 @@ public class MahasiswaRepository
         listMahasiswa.Add(mhs);
     }
 
+    public int getLastId()
+    {
+        if (listMahasiswa.Count == 0)
+        {
+            return 0;
+        } else
+        {
+            return listMahasiswa[listMahasiswa.Count - 1].Id;
+        }
+    }
+
     public List<Mahasiswa> getAllMahasiswa()
     {
-        return listMahasiswa;
+        if (listMahasiswa.Count == 0)
+        {
+            Console.WriteLine("Data Mahasiswa kosong.");
+            return null;
+        } else
+        {
+            Console.WriteLine("Data Mahasiswa tersedia.");
+            return listMahasiswa;
+        }
+  
     }
 
     public Mahasiswa GetMahasiswaById(int id)
