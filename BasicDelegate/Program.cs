@@ -5,6 +5,7 @@
         static void Main(string[] args)
         {
             BasicDelegate1();
+            DelegateWithParameter();
         }
 
         delegate int Transformer(int x, int y);
@@ -41,6 +42,49 @@
         static int Multiply(int x, int y)
         {
             return x * y;
+        }
+
+
+        // END BASIC DELEGATE
+
+        delegate int ProcessNumber(int x);
+
+        static void DelegateWithParameter()
+        {
+            int[] numbers = [1,2,3,4,5,6];
+            Console.WriteLine($"Original values: [{string.Join(", ", numbers)}]");
+
+            Transform(numbers, Double);
+
+            Console.WriteLine($"After values: [{string.Join(", ", numbers)}]");
+
+            //reset array
+            numbers = new int[] {1,2,3,4,5,6};
+            Console.WriteLine($"Original values: [{string.Join(", ", numbers)}]");
+
+            Transform(numbers, Square);
+
+            Console.WriteLine($"After values: [{string.Join(", ", numbers)}]");
+        }
+
+        static int Double(int x)
+        {
+            int result = x * 2;
+            return result;
+        }
+
+        static int Square(int x)
+        {
+            int result = x * x;
+            return result;
+        }
+
+        static void Transform(int[] data, ProcessNumber p)
+        {
+            for (int i = 0; i < data.Length; i++)
+            {
+                data[i] = p(data[i]);
+            }
         }
     }
 }
