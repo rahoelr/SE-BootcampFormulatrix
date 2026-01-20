@@ -1,4 +1,6 @@
-﻿namespace Delegates
+﻿using System.Collections.Specialized;
+
+namespace Delegates
 {
     class Program
     {
@@ -6,6 +8,7 @@
         {
             BasicDelegate1();
             DelegateWithParameter();
+            DelegateInstaces();
         }
 
         delegate int Transformer(int x, int y);
@@ -27,7 +30,7 @@
             t = Add;
             result = t.Invoke(10, 20);
             Console.WriteLine($"hasil add : {result}");
-            
+
         }
         static int Add(int x, int y)
         {
@@ -51,7 +54,7 @@
 
         static void DelegateWithParameter()
         {
-            int[] numbers = [1,2,3,4,5,6];
+            int[] numbers = [1, 2, 3, 4, 5, 6];
             Console.WriteLine($"Original values: [{string.Join(", ", numbers)}]");
 
             Transform(numbers, Double);
@@ -59,7 +62,7 @@
             Console.WriteLine($"After values: [{string.Join(", ", numbers)}]");
 
             //reset array
-            numbers = new int[] {1,2,3,4,5,6};
+            numbers = new int[] { 1, 2, 3, 4, 5, 6 };
             Console.WriteLine($"Original values: [{string.Join(", ", numbers)}]");
 
             Transform(numbers, Square);
@@ -86,5 +89,34 @@
                 data[i] = p(data[i]);
             }
         }
+
+          // end of delegate callback
+
+        delegate int ProcessNumberX(int x);
+
+        static void DelegateInstaces()
+        {
+            Counter count = new Counter(5);
+            ProcessNumberX del = count.Increase;
+            Console.WriteLine(del(1));   // 1 + 5 = 6
+            Console.WriteLine(del(10));  // 10 + 5 = 15
+            Console.WriteLine(del(100)); // 100 + 5 = 105
+
+        }
+        class Counter
+        {
+            private int _step;
+
+            public Counter(int step)
+            {
+                _step = step;
+            }
+
+            public int Increase(int x)
+            {
+                return x + _step;
+            }
+        }
     }
+
 }
