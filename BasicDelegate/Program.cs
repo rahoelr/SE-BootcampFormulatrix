@@ -14,6 +14,7 @@ namespace Delegates
             GenericDelegateDemo();
             FuncAndActionDelegatesDemo();
             DelegateVsInterfaceDemo();
+            DelegateEventHandler();
         }
 
         delegate int Transformer(int x, int y);
@@ -240,11 +241,11 @@ namespace Delegates
 
             ITransformer squareTransformer = new SquareTransformer();
 
-            TransformWithInterface(new int[] {2,3,4,5}, squareTransformer);
+            TransformWithInterface(new int[] { 2, 3, 4, 5 }, squareTransformer);
 
-            Func<int, int> squareDelegate = x => x *x;
+            Func<int, int> squareDelegate = x => x * x;
 
-            TransformWithDelegate(new int[] {1,2,3,4,5,6}, squareDelegate);
+            TransformWithDelegate(new int[] { 1, 2, 3, 4, 5, 6 }, squareDelegate);
 
         }
 
@@ -268,7 +269,7 @@ namespace Delegates
         {
             for (int i = 0; i < values.Length; i++)
             {
-                values[i] = transformer.Transform(values[i]);   
+                values[i] = transformer.Transform(values[i]);
             }
             Console.WriteLine($"  Result: [{string.Join(", ", values)}]");
         }
@@ -280,6 +281,42 @@ namespace Delegates
                 values[i] = transform(values[i]);
             }
             Console.WriteLine($"  Result: [{string.Join(", ", values)}]");
+        }
+
+
+        static void DelegateEventHandler()
+        {
+            Downloader downlaoder = new Downloader();
+            downlaoder.ProgressChanged += ShowProgress;
+            // downlaoder.ProgressChanged += SaveProgressToFile;
+
+            downlaoder.StartDownload();
+
+            Console.WriteLine("download selesai");
+        }
+
+        static void ShowProgress(int progress)
+        {
+            Console.WriteLine($"Progress: {progress}%");
+        }
+
+        static void SaveProgressToFile(int progress)
+        {
+            File.AppendAllText("progress.txt", $"Progress: {progress}%{Environment.NewLine}");
+        }
+
+        class Downloader
+        {
+            public event Action<int> ProgressChanged;
+
+            public void StartDownload()
+            {
+                for (int i = 0; i <= 100; i += 20)
+                {
+                    Thread.Sleep(500);
+                    ProgressChanged?.Invoke(i);
+                }
+            }
         }
 
 
