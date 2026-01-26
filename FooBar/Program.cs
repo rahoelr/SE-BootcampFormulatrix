@@ -4,30 +4,22 @@ FooBar(100);
 
 static void FooBar(int n)
 {
-    for (int i = 1; i < n+1; i++)
+    for (int i = 1; i <= n; i++)
     {
-        if (i%3 ==0 && i%5 ==0 && i%7==0)
-        {
-            Console.WriteLine("FooBarJazz");
-        } else if (i%3 ==0 && i%7==0)
-        {
-            Console.WriteLine("FooJazz");
-        } else if (i%5 ==0 && i%7==0)
-        {
-            Console.WriteLine("BarJazz");
-        }
-         else if (i%3 == 0 && i%5 == 0)
-        {
-            Console.WriteLine("FooBar");
-        } else if (i%3==0)
-        {
-            Console.WriteLine("Foo");
-        } else if (i % 5 == 0)
-        {
-            Console.WriteLine("Bar");
-        } else
-        {
-            Console.WriteLine(i);
-        }
+        string result = GetFooBarResult(i);
+        Console.WriteLine(result);
     }
+}
+
+static string GetFooBarResult(int number)
+{
+    string result = "";
+    
+    if (number % 3 == 0) result += "Foo";
+    if (number % 4 == 0) result += "Baz";
+    if (number % 5 == 0) result += "Bar";
+    if (number % 7 == 0) result += "Jazz";
+    if (number % 9 == 0) result += "Huzz";
+    
+    return string.IsNullOrEmpty(result) ? number.ToString() : result;
 }
