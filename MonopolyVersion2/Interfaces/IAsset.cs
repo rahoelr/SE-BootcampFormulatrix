@@ -11,7 +11,5 @@ namespace MonopolyApp.Interfaces
         int Value { get; set; }
         IPlayer? Owner {get; set;}
         int AmountHouse {get; set;}
-
-
     }
 }
