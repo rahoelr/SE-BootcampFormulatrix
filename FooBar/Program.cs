@@ -1,6 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-FooBar(100);
+FooBar(20);
 
 static void FooBar(int n)
 {
