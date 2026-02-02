@@ -1,11 +1,16 @@
 public struct TilePos
 {
-    int x;
-    int y;
+    public int X;
+    public int Y;
 
     public TilePos(int x, int y)
     {
-        this.x = x;
-        this.y = y;
+        X = x;
+        Y = y;
+    }
+
+    public override string ToString()
+    {
+        return $"({X}), {Y})";
     }
 }

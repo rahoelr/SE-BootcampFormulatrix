@@ -1,6 +1,10 @@
-public enum TypeAsset
-{
-    RealEstate,
-    PublicService
 
+namespace MonopolyApp.Enums
+{
+    public enum TypeAsset
+    {
+        RealEstate,
+        PublicService
+
+    }
 }

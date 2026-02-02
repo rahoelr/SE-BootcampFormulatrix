@@ -1,8 +1,11 @@
-public enum CardEffect
+namespace MonopolyApp.Enums
 {
-    ReceiveMoney,
-    PayMoney,
-    GoToJail,
-    GetOutJail,
-    Move
+    public enum CardEffect
+    {
+        ReceiveMoney,
+        PayMoney,
+        GoToJail,
+        GetOutJail,
+        Move
+    }
 }

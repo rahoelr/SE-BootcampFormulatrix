@@ -1,5 +1,9 @@
-public enum PlayerState
+namespace MonopolyApp.Enums
 {
-    Normal,
-    InJail
+
+    public enum PlayerState
+    {
+        Normal,
+        InJail
+    }
 }
