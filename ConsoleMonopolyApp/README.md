@@ -6,8 +6,9 @@
 2. [GameController.cs](#2-gamecontrollercs)
 3. [Program.cs](#3-programcs)
 4. [ConsoleView.cs](#4-consoleviewcs)
-5. [Flow Permainan](#5-flow-permainan)
-6. [Cara Menjalankan Aplikasi](#6-cara-menjalankan-aplikasi)
+5. [Models](#5-models)
+6. [Flow Permainan](#6-flow-permainan)
+7. [Cara Menjalankan Aplikasi](#7-cara-menjalankan-aplikasi)
 
 ---
 
@@ -1196,9 +1197,648 @@ public void WaitForKeyPress()
 
 ---
 
-# 5. Flow Permainan
+# 5. Models
 
-## 5.1 Alur Setup Game
+Bagian ini mendokumentasikan semua class Model yang digunakan dalam aplikasi.
+
+---
+
+## 7.1 Player.cs
+
+**Lokasi:** `Models/Player.cs`  
+**Total Baris:** 73
+
+### Deskripsi
+
+Class `Player` merepresentasikan pemain dalam permainan Monopoly. Setiap pemain memiliki nama, uang, aset, posisi di papan, dan status permainan.
+
+### Properties
+
+```csharp
+public string Name { get; set; }              // Nama pemain
+public int RouteIndex { get; set; }           // Posisi di route (0-39)
+public PlayerState State { get; set; }        // Normal, InJail, Bankrupt
+public IMoney Money { get; }                  // Uang pemain
+public List<IAsset> Assets { get; }           // Daftar aset yang dimiliki
+public ITile? CurrentTile { get; set; }       // Tile saat ini
+public char Symbol { get; }                   // Simbol pemain (1,2,3,4)
+public int JailTurns { get; set; }            // Jumlah giliran di jail
+public bool HasGetOutOfJailCard { get; set; } // Punya kartu bebas jail
+```
+
+### Constructor
+
+```csharp
+public Player(string name, int initialMoney = 1500)
+{
+    Name = name;
+    Money = new Money(initialMoney);
+    Assets = new List<IAsset>();
+    RouteIndex = 0;
+    State = PlayerState.Normal;
+    CurrentTile = null;
+    Symbol = PlayerSymbols[_playerCount % PlayerSymbols.Length];
+    _playerCount++;
+    JailTurns = 0;
+    HasGetOutOfJailCard = false;
+}
+```
+
+### Methods
+
+#### 7.1.1 AddAsset(IAsset asset)
+
+**Lokasi:** Baris 35-39
+
+```csharp
+public void AddAsset(IAsset asset)
+{
+    asset.Owner = this;
+    Assets.Add(asset);
+}
+```
+
+**Deskripsi:** Menambahkan aset ke pemain dan set owner aset ke pemain ini.
+
+#### 7.1.2 RemoveAsset(IAsset asset)
+
+**Lokasi:** Baris 41-45
+
+```csharp
+public void RemoveAsset(IAsset asset)
+{
+    asset.Owner = null;
+    Assets.Remove(asset);
+}
+```
+
+**Deskripsi:** Menghapus aset dari pemain dan set owner ke null.
+
+#### 7.1.3 GetTotalAssetValue()
+
+**Lokasi:** Baris 47-56
+
+```csharp
+public int GetTotalAssetValue()
+{
+    int total = 0;
+    foreach (var asset in Assets)
+    {
+        total += asset.Value;
+        total += asset.AmountHouse * asset.HouseCost;
+    }
+    return total;
+}
+```
+
+**Deskripsi:** Menghitung total nilai semua aset termasuk rumah.
+
+#### 7.1.4 GetNetWorth()
+
+**Lokasi:** Baris 58-61
+
+```csharp
+public int GetNetWorth()
+{
+    return Money.Balance + GetTotalAssetValue();
+}
+```
+
+**Deskripsi:** Menghitung total kekayaan pemain (uang + aset).
+
+#### 7.1.5 ResetPlayerCount() [Static]
+
+**Lokasi:** Baris 63-66
+
+```csharp
+public static void ResetPlayerCount()
+{
+    _playerCount = 0;
+}
+```
+
+**Deskripsi:** Reset counter pemain untuk game baru.
+
+---
+
+## 7.2 Asset.cs
+
+**Lokasi:** `Models/Asset.cs`  
+**Total Baris:** 83
+
+### Deskripsi
+
+Class `Asset` merepresentasikan properti yang bisa dibeli dalam permainan, termasuk real estate, railroad, dan utility.
+
+### Properties
+
+```csharp
+public string Name { get; set; }                    // Nama properti
+public TypeAsset TypeAsset { get; set; }           // REAL_ESTATE, RAILROAD, PUBLIC_SERVICE
+public AssetsCondition AssetsCondition { get; set; } // NORMAL, MORTGAGED
+public int Value { get; set; }                      // Harga beli
+public IPlayer? Owner { get; set; }                 // Pemilik (null = bank)
+public int AmountHouse { get; set; }                // Jumlah rumah (0-5)
+public int HouseCost { get; }                       // Biaya per rumah
+public int[] Rent { get; }                          // Array rent berdasarkan rumah
+public int ColorGroup { get; }                      // Group warna (1-8)
+```
+
+### Constructor
+
+```csharp
+public Asset(string name, TypeAsset typeAsset, int value, int[] rent, 
+             int houseCost = 0, int colorGroup = 0)
+{
+    Name = name;
+    TypeAsset = typeAsset;
+    Value = value;
+    Rent = rent;
+    HouseCost = houseCost;
+    ColorGroup = colorGroup;
+    AssetsCondition = AssetsCondition.NORMAL;
+    Owner = null;
+    AmountHouse = 0;
+}
+```
+
+### Methods
+
+#### 7.2.1 CalculateRent(int diceRoll, int sameColorCount)
+
+**Lokasi:** Baris 31-59
+
+```csharp
+public int CalculateRent(int diceRoll = 0, int sameColorCount = 0)
+{
+    if (AssetsCondition == AssetsCondition.MORTGAGED)
+        return 0;
+
+    switch (TypeAsset)
+    {
+        case TypeAsset.REAL_ESTATE:
+            int rentIndex = Math.Min(AmountHouse, Rent.Length - 1);
+            int baseRent = Rent[rentIndex];
+            // Double rent if owner owns all properties in color group and no houses
+            if (AmountHouse == 0 && sameColorCount >= GetColorGroupSize())
+                return baseRent * 2;
+            return baseRent;
+
+        case TypeAsset.RAILROAD:
+            int railroadRentIndex = Math.Min(sameColorCount - 1, Rent.Length - 1);
+            return railroadRentIndex >= 0 ? Rent[railroadRentIndex] : Rent[0];
+
+        case TypeAsset.PUBLIC_SERVICE:
+            int multiplier = sameColorCount >= 2 ? 10 : 4;
+            return diceRoll * multiplier;
+
+        default:
+            return 0;
+    }
+}
+```
+
+**Penjelasan Logic:**
+- **Real Estate:** Rent berdasarkan jumlah rumah, double jika full color group
+- **Railroad:** $25, $50, $100, $200 berdasarkan jumlah RR yang dimiliki
+- **Utility:** 4× atau 10× dice roll tergantung jumlah utility
+
+#### 7.2.2 GetColorGroupSize() [Private]
+
+**Lokasi:** Baris 61-66
+
+```csharp
+private int GetColorGroupSize()
+{
+    // Color groups with 2 properties: Brown (1), Dark Blue (8)
+    return (ColorGroup == 1 || ColorGroup == 8) ? 2 : 3;
+}
+```
+
+**Deskripsi:** Return jumlah properti dalam color group (2 atau 3).
+
+#### 7.2.3 GetMortgageValue()
+
+**Lokasi:** Baris 68-71
+
+```csharp
+public int GetMortgageValue()
+{
+    return Value / 2;
+}
+```
+
+**Deskripsi:** Return nilai mortgage (50% dari harga).
+
+#### 7.2.4 GetUnmortgageValue()
+
+**Lokasi:** Baris 73-76
+
+```csharp
+public int GetUnmortgageValue()
+{
+    return (int)(GetMortgageValue() * 1.1);
+}
+```
+
+**Deskripsi:** Return biaya unmortgage (110% dari mortgage value).
+
+---
+
+## 7.3 Board.cs
+
+**Lokasi:** `Models/Board.cs`  
+**Total Baris:** 65
+
+### Deskripsi
+
+Class `Board` merepresentasikan papan permainan Monopoly dengan grid 11×11 dan route 40 tile.
+
+### Properties
+
+```csharp
+public int Width { get; }           // Lebar papan (11)
+public int Height { get; }          // Tinggi papan (11)
+public ITile?[,] Grid { get; }      // Grid 2D untuk rendering
+public List<ITile> Route { get; }   // Route 40 tile untuk pergerakan
+```
+
+### Constructor
+
+```csharp
+public Board(int width, int height)
+{
+    if (width < 3 || height < 3)
+        throw new ArgumentException("Board must be at least 3x3");
+
+    Width = width;
+    Height = height;
+    Grid = new ITile?[width, height];
+    Route = new List<ITile>();
+}
+```
+
+### Methods
+
+#### 7.3.1 SetTile(int x, int y, ITile tile)
+
+**Lokasi:** Baris 24-31
+
+```csharp
+public void SetTile(int x, int y, ITile tile)
+{
+    if (x < 0 || x >= Width || y < 0 || y >= Height)
+        throw new ArgumentOutOfRangeException($"Position ({x}, {y}) is out of bounds");
+
+    tile.Pos = new TilePos(x, y);
+    Grid[x, y] = tile;
+}
+```
+
+**Deskripsi:** Set tile di posisi tertentu pada grid.
+
+#### 7.3.2 AddToRoute(ITile tile)
+
+**Lokasi:** Baris 33-37
+
+```csharp
+public void AddToRoute(ITile tile)
+{
+    tile.PathIndex = Route.Count;
+    Route.Add(tile);
+}
+```
+
+**Deskripsi:** Tambahkan tile ke route dan set PathIndex-nya.
+
+#### 7.3.3 GetTileAt(int x, int y)
+
+**Lokasi:** Baris 39-45
+
+```csharp
+public ITile? GetTileAt(int x, int y)
+{
+    if (x < 0 || x >= Width || y < 0 || y >= Height)
+        return null;
+
+    return Grid[x, y];
+}
+```
+
+**Deskripsi:** Ambil tile di posisi grid tertentu.
+
+#### 7.3.4 GetTileByPathIndex(int pathIndex)
+
+**Lokasi:** Baris 47-58
+
+```csharp
+public ITile? GetTileByPathIndex(int pathIndex)
+{
+    if (pathIndex < 0)
+        pathIndex = Route.Count + (pathIndex % Route.Count);
+    
+    pathIndex = pathIndex % Route.Count;
+    
+    if (pathIndex >= 0 && pathIndex < Route.Count)
+        return Route[pathIndex];
+
+    return null;
+}
+```
+
+**Deskripsi:** Ambil tile berdasarkan path index (dengan wrap-around).
+
+#### 7.3.5 GetTotalPathLength()
+
+**Lokasi:** Baris 60-63
+
+```csharp
+public int GetTotalPathLength()
+{
+    return Route.Count;
+}
+```
+
+**Deskripsi:** Return jumlah tile di route (40).
+
+---
+
+## 7.4 Money.cs
+
+**Lokasi:** `Models/Money.cs`  
+**Total Baris:** 43
+
+### Deskripsi
+
+Class `Money` mengelola uang pemain dengan validasi untuk mencegah nilai negatif.
+
+### Properties
+
+```csharp
+public int Balance { get; private set; }  // Saldo uang saat ini
+```
+
+### Constructor
+
+```csharp
+public Money(int initialBalance = 1500)
+{
+    if (initialBalance < 0)
+        throw new ArgumentException("Initial balance cannot be negative");
+    
+    Balance = initialBalance;
+}
+```
+
+### Methods
+
+#### 7.4.1 Add(int amount)
+
+**Lokasi:** Baris 17-23
+
+```csharp
+public void Add(int amount)
+{
+    if (amount < 0)
+        throw new ArgumentException("Amount cannot be negative");
+    
+    Balance += amount;
+}
+```
+
+**Deskripsi:** Tambah uang ke saldo.
+
+#### 7.4.2 Subtract(int amount)
+
+**Lokasi:** Baris 25-36
+
+```csharp
+public bool Subtract(int amount)
+{
+    if (amount < 0)
+        throw new ArgumentException("Amount cannot be negative");
+    
+    if (Balance >= amount)
+    {
+        Balance -= amount;
+        return true;
+    }
+    return false;
+}
+```
+
+**Deskripsi:** Kurangi uang dari saldo. Return `true` jika berhasil, `false` jika tidak cukup.
+
+---
+
+## 7.5 Tile.cs
+
+**Lokasi:** `Models/Tile.cs`  
+**Total Baris:** 34
+
+### Deskripsi
+
+Class `Tile` merepresentasikan satu tile di papan permainan.
+
+### Properties
+
+```csharp
+public string Name { get; set; }          // Nama tile
+public TilePos Pos { get; set; }          // Posisi (x, y) di grid
+public int? PathIndex { get; set; }       // Index di route (0-39)
+public char Display { get; set; }         // Karakter display
+public TilesType Type { get; set; }       // PROPERTY, CORNER, SPECIAL, dll
+public EffectType EffectType { get; set; } // GO, TAX, CHANCE, dll
+public IAsset? Asset { get; set; }        // Aset properti (jika ada)
+```
+
+### Constructor
+
+```csharp
+public Tile(TilePos pos, string name, char display = ' ', 
+            TilesType type = TilesType.SPECIAL, 
+            EffectType effectType = EffectType.NOTHING, 
+            int? pathIndex = null)
+{
+    Pos = pos;
+    Name = name;
+    Display = display;
+    Type = type;
+    EffectType = effectType;
+    PathIndex = pathIndex;
+    Asset = null;
+}
+```
+
+---
+
+## 7.6 Card.cs
+
+**Lokasi:** `Models/Card.cs`  
+**Total Baris:** 26
+
+### Deskripsi
+
+Class `Card` merepresentasikan kartu Community Chest atau Chance.
+
+### Properties
+
+```csharp
+public string Name { get; }            // Nama kartu
+public string Description { get; }     // Deskripsi efek
+public CardEffect CardEffect { get; }  // Jenis efek (RECEIVE_MONEY, PAY_MONEY, dll)
+public int Value { get; }              // Nilai terkait (uang atau posisi)
+```
+
+### Constructor
+
+```csharp
+public Card(string name, string description, CardEffect cardEffect, int value = 0)
+{
+    Name = name;
+    Description = description;
+    CardEffect = cardEffect;
+    Value = value;
+}
+```
+
+---
+
+## 7.7 Decks.cs
+
+**Lokasi:** `Models/Decks.cs`  
+**Total Baris:** 47
+
+### Deskripsi
+
+Class `Decks` mengelola kumpulan kartu dengan fitur shuffle dan draw.
+
+### Properties
+
+```csharp
+public List<ICard> Cards => _cards;  // Daftar kartu dalam deck
+```
+
+### Private Fields
+
+```csharp
+private readonly List<ICard> _cards;   // Kartu
+private readonly Random _random;        // Random generator
+private int _currentIndex;              // Index kartu saat ini
+```
+
+### Constructor
+
+```csharp
+public Decks(List<ICard> cards)
+{
+    _cards = cards ?? throw new ArgumentNullException(nameof(cards));
+    _random = new Random();
+    _currentIndex = 0;
+    Shuffle();
+}
+```
+
+### Methods
+
+#### 7.7.1 DrawCard()
+
+**Lokasi:** Baris 21-33
+
+```csharp
+public ICard DrawCard()
+{
+    if (_cards.Count == 0)
+        throw new InvalidOperationException("Deck is empty");
+
+    if (_currentIndex >= _cards.Count)
+    {
+        Shuffle();
+        _currentIndex = 0;
+    }
+
+    return _cards[_currentIndex++];
+}
+```
+
+**Deskripsi:** Ambil kartu dari deck. Jika sudah habis, shuffle ulang.
+
+#### 7.7.2 Shuffle()
+
+**Lokasi:** Baris 35-45
+
+```csharp
+public void Shuffle()
+{
+    int n = _cards.Count;
+    while (n > 1)
+    {
+        n--;
+        int k = _random.Next(n + 1);
+        (_cards[k], _cards[n]) = (_cards[n], _cards[k]);
+    }
+    _currentIndex = 0;
+}
+```
+
+**Deskripsi:** Acak urutan kartu menggunakan Fisher-Yates shuffle.
+
+---
+
+## 7.8 Dice.cs
+
+**Lokasi:** `Models/Dice.cs`  
+**Total Baris:** 25
+
+### Deskripsi
+
+Class `Dice` merepresentasikan dadu dengan nilai maksimum yang dapat dikonfigurasi.
+
+### Properties
+
+```csharp
+public int Max { get; }  // Nilai maksimum dadu (default: 6)
+```
+
+### Private Fields
+
+```csharp
+private readonly Random _random;  // Random generator
+```
+
+### Constructor
+
+```csharp
+public Dice(int max = 6)
+{
+    if (max < 1)
+        throw new ArgumentException("Max value must be at least 1");
+    
+    Max = max;
+    _random = new Random();
+}
+```
+
+### Methods
+
+#### 7.8.1 Roll()
+
+**Lokasi:** Baris 20-23
+
+```csharp
+public int Roll()
+{
+    return _random.Next(1, Max + 1);
+}
+```
+
+**Deskripsi:** Roll dadu dan return nilai acak antara 1 dan Max (inklusif).
+
+---
+
+# 6. Flow Permainan
+
+## 7.1 Alur Setup Game
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1241,7 +1881,7 @@ public void WaitForKeyPress()
               └───────────────────────────────┘
 ```
 
-## 5.2 Alur Game Loop Utama
+## 7.2 Alur Game Loop Utama
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1291,7 +1931,7 @@ public void WaitForKeyPress()
 └──────────────────┘
 ```
 
-## 5.3 Alur Giliran Pemain (Player Turn Flow)
+## 7.3 Alur Giliran Pemain (Player Turn Flow)
 
 1. **Cek Status Pemain**
    - Skip jika `State == Bankrupt`
@@ -1319,7 +1959,7 @@ public void WaitForKeyPress()
    - Handle saldo negatif
    - Opsi: Sell house, Mortgage, Bankruptcy
 
-## 5.4 Alur Jail System
+## 7.4 Alur Jail System
 
 ```
 ┌─────────────────┐
@@ -1345,7 +1985,7 @@ public void WaitForKeyPress()
 └─────────────────────────────────────────┘
 ```
 
-## 5.5 Alur Pembelian Properti
+## 7.5 Alur Pembelian Properti
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -1390,7 +2030,7 @@ public void WaitForKeyPress()
     └─────────────┘  └──────────────┘
 ```
 
-## 5.6 Alur Pembayaran Rent
+## 7.6 Alur Pembayaran Rent
 
 ```
 Rent Calculation:
@@ -1415,7 +2055,7 @@ UTILITY:
 └── 2 Utilities: 10 × dice roll
 ```
 
-## 5.7 Alur Building Houses/Hotels
+## 7.7 Alur Building Houses/Hotels
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1443,7 +2083,7 @@ Color Groups:
 └─────────┴───────────────┴─────────────┘
 ```
 
-## 5.8 Alur Mortgage System
+## 7.8 Alur Mortgage System
 
 ```
 MORTGAGE:
@@ -1458,7 +2098,7 @@ UNMORTGAGE:
 └── Properti kembali normal
 ```
 
-## 5.9 Alur Trading System
+## 7.9 Alur Trading System
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1501,7 +2141,7 @@ UNMORTGAGE:
         └────────────┘  └────────────┘
 ```
 
-## 5.10 Alur Card System
+## 7.10 Alur Card System
 
 ```
 COMMUNITY CHEST / CHANCE:
@@ -1518,7 +2158,7 @@ COMMUNITY CHEST / CHANCE:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 5.11 Alur Bankruptcy
+## 7.11 Alur Bankruptcy
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1558,7 +2198,7 @@ COMMUNITY CHEST / CHANCE:
   └──────────┘
 ```
 
-## 5.12 Alur Game Over
+## 7.12 Alur Game Over
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1592,15 +2232,15 @@ COMMUNITY CHEST / CHANCE:
 
 ---
 
-# 6. Cara Menjalankan Aplikasi
+# 7. Cara Menjalankan Aplikasi
 
-## 6.1 Prerequisites
+## 7.1 Prerequisites
 
 - .NET 6.0 SDK atau lebih baru
 - Terminal/Console yang mendukung UTF-8 encoding
 - Terminal yang mendukung ANSI color codes
 
-## 6.2 Build
+## 7.2 Build
 
 ```bash
 # Navigate to project directory
@@ -1613,14 +2253,14 @@ dotnet restore
 dotnet build
 ```
 
-## 6.3 Run
+## 7.3 Run
 
 ```bash
 # Run the application
 dotnet run
 ```
 
-## 6.4 Gameplay Instructions
+## 7.4 Gameplay Instructions
 
 1. **Welcome Screen**: Tekan sembarang tombol untuk mulai
 2. **Player Setup**: 
@@ -1633,7 +2273,7 @@ dotnet run
 4. **Winning**: 
    - Pemain terakhir yang tidak bankrupt menang
 
-## 6.5 Controls
+## 7.5 Controls
 
 | Key | Action |
 |-----|--------|
