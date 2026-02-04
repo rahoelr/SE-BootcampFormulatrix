@@ -10,16 +10,16 @@ namespace MonopolyApp.Models
         public PlayerState PlayerState { get; set; }
         public IMoney Money { get; set; }
         public List<IAsset> Assets { get; set; }
-        public ITile CurrentTile { get; set; }
+        public ITile? CurrentTile { get; set; }
 
-        public Player(string name, IMoney money, ITile startingTile)
+        public Player(string name, IMoney money)
         {
             Name = name;
             PathIndex = 0;
-            PlayerState = PlayerState.Normal;
             Money = money;
             Assets = new List<IAsset>();
-            CurrentTile = startingTile;
+            PlayerState = PlayerState.Normal;
+            CurrentTile = null!;
         }
     }
 }

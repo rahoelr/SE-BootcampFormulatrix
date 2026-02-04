@@ -6,19 +6,9 @@ namespace MonopolyApp.Models
     {
         public int Balance { get; set; }
 
-        public Money(int balance)
+        public Money(int initialBalance)
         {
-            Balance = balance;
-        }
-
-        public void Add(int amount)
-        {
-            Balance += amount;
-        }
-
-        public void Subtract(int amount)
-        {
-            Balance -= amount;
+            Balance = initialBalance;
         }
     }
 }

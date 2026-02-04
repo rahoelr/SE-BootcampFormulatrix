@@ -7,6 +7,6 @@ namespace MonopolyApp.Enums
         int Width {get; set;}
         int Height {get; set;}
         ITile?[,] Grid {get; set;}
-        List<ITile> Route {get; set;}
+        List<ITile> Path {get; set;}
     }
 }

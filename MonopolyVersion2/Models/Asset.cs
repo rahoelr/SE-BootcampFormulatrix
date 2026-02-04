@@ -12,14 +12,14 @@ namespace MonopolyApp.Models
         public IPlayer? Owner {get; set;}
         public int AmountHouse {get; set;}
 
-        public Asset(string name, TypeAsset typeAsset, AssetCondition assetCondition, int value, IPlayer owner, int amountHouse)
+        public Asset(string name, TypeAsset typeAsset, int value)
         {
             Name = name;
             TypeAsset = typeAsset;
-            AssetCondition = assetCondition;
             Value = value;
-            Owner = owner;
-            AmountHouse = amountHouse;
+            AssetCondition = AssetCondition.Normal;
+            Owner = null;
+            AmountHouse = 0;
         }
     }
 }

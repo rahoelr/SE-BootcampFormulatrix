@@ -7,15 +7,15 @@ namespace MonopolyApp.Models
     {
         public int Width { get; set; }
         public int Height { get; set; }
-        public ITile[,] Grid { get; set; }
-        public List<ITile> Route { get; set; }
+        public ITile?[,] Grid { get; set; }
+        public List<ITile> Path { get; set; }
 
-        public Board(int width, int height, ITile[,] grid, List<ITile> route)
+        public Board(int width, int height)
         {
             Width = width;
             Height = height;
-            Grid = grid;
-            Route = route;
+            Grid = new ITile[height, width];
+            Path = new List<ITile>();
         }
     }
 }
