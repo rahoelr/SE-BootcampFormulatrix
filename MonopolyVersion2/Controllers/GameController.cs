@@ -282,8 +282,15 @@ namespace MonopolyApp.Controllers
 
                 if (money.Balance <= remaining)
                 {
+                    // Uang ini habis dipakai
                     remaining -= money.Balance;
                     PlayerMoney[player].Remove(money);
+                }
+                else
+                {
+                    // Uang ini cukup untuk sisa pembayaran, kurangi balance-nya
+                    money.Balance -= remaining;
+                    remaining = 0;
                 }
             }
 
