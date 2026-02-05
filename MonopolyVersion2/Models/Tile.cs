@@ -1,5 +1,6 @@
 using MonopolyApp.Enums;
 using MonopolyApp.Interfaces;
+using MonopolyApp.Structs;
 
 namespace MonopolyApp.Models
 {

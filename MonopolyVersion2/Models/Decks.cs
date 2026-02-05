@@ -2,11 +2,11 @@ using MonopolyApp.Interfaces;
 
 namespace MonopolyApp.Models
 {
-    public class Deck : IDecks
+    public class Decks : IDecks
     {
         public List<ICard> Cards{ get; set; }
 
-        public Deck(List<ICard> cards)
+        public Decks(List<ICard> cards)
         {
             Cards = cards;
         }

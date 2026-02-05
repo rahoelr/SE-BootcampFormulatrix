@@ -7,11 +7,14 @@ namespace MonopolyApp.Models
     {
         public string Name {get; set;}
         public CardEffect CardEffect {get; set;}
-
-        public Card(string name, CardEffect cardEffect)
+        public string? Description {get; set;}
+        public int Value {get; set;}
+        public Card(string name, string description, CardEffect cardEffect, int value)
         {
             Name = name;
+            Description = description;
             CardEffect = cardEffect;
+            Value = value;
         }
     }
 }

@@ -1,5 +1,3 @@
-using MonopolyApp.Enums;
-
 namespace MonopolyApp.Interfaces
 {
     public interface IDecks
