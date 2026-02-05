@@ -254,4 +254,29 @@ public static class SetupBoard
 
         return new Decks(cards);
     }
+
+    public static Decks CreateCommunityChestDeck()
+    {
+        var cards = new List<ICard>
+        {
+            new Card("Maju ke MULAI", "Maju ke MULAI (Terima $200)", CardEffect.Move, 0),
+            new Card("Kesalahan Bank", "Kesalahan bank menguntungkan Anda. Terima $200", CardEffect.ReceiveMoney, 200),
+            new Card("Tagihan Dokter", "Tagihan dokter. Bayar $50", CardEffect.PayMoney, 50),
+            new Card("Penjualan Saham", "Dari penjualan saham Anda mendapat $50", CardEffect.ReceiveMoney, 50),
+            new Card("Bebas Penjara", "Kartu bebas dari penjara", CardEffect.GetOutJail, 0),
+            new Card("Masuk Penjara", "Langsung masuk penjara. Jangan lewati MULAI", CardEffect.GoToJail, 0),
+            new Card("Hadiah Konser", "Anda menerima royalti dari konser. Terima $100", CardEffect.ReceiveMoney, 100),
+            new Card("Hadiah Ulang Tahun", "Hari ulang tahun Anda. Terima $10 dari setiap pemain", CardEffect.ReceiveMoney, 10),
+            new Card("Pengembalian Pajak", "Pengembalian pajak penghasilan. Terima $20", CardEffect.ReceiveMoney, 20),
+            new Card("Premi Asuransi", "Premi asuransi jiwa jatuh tempo. Bayar $50", CardEffect.PayMoney, 50),
+            new Card("Biaya Rumah Sakit", "Bayar biaya rumah sakit $100", CardEffect.PayMoney, 100),
+            new Card("Biaya Sekolah", "Bayar biaya sekolah $50", CardEffect.PayMoney, 50),
+            new Card("Dana Konsultasi", "Terima dana konsultasi $25", CardEffect.ReceiveMoney, 25),
+            new Card("Perbaikan Jalan", "Anda dinilai untuk perbaikan jalan. Bayar $40 per rumah, $115 per hotel", CardEffect.PayMoney, 40),
+            new Card("Warisan", "Anda mewarisi $100", CardEffect.ReceiveMoney, 100),
+            new Card("Kompetisi Kecantikan", "Anda juara kedua dalam kompetisi kecantikan. Terima $10", CardEffect.ReceiveMoney, 10)
+        };
+
+        return new Decks(cards);
+    }
 }

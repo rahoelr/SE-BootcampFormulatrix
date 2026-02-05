@@ -182,6 +182,38 @@ namespace MonopolyApp.Controllers
             return _playerJailTurns.ContainsKey(player) ? _playerJailTurns[player] : 0;
         }
 
+        public bool HasGetOutOfJailCard(IPlayer player)
+        {
+            return _playerGetOutOfJailCards.ContainsKey(player) &&
+                   _playerGetOutOfJailCards[player] > 0;
+        }
+
+        public bool TryRollDoublesInJail()
+        {
+            if (CurrentPlayer.PlayerState != PlayerState.InJail)
+                return false;
+
+            var (dice1, dice2) = RollDices();
+
+            if (dice1 == dice2)
+            {
+                // Berhasil roll ganda - keluar dari penjara
+                CurrentPlayer.PlayerState = PlayerState.Normal;
+                _playerJailTurns[CurrentPlayer] = 0;
+                OnMessage?.Invoke($"{CurrentPlayer.Name} melempar ganda dan keluar dari penjara!");
+
+                // Pindahkan pemain
+                MovePlayer(dice1 + dice2);
+                OnLand();
+                return true;
+            }
+            else
+            {
+                OnMessage?.Invoke($"{CurrentPlayer.Name} tidak mendapat ganda. Tetap di penjara.");
+                return false;
+            }
+        }
+
         public bool AddMoney(IPlayer player, int amount)
         {
             if (amount <= 0)
