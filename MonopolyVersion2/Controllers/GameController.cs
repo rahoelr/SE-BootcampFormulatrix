@@ -332,7 +332,7 @@ namespace MonopolyApp.Controllers
             if (position < oldPosition)
             {
                 AddMoney(CurrentPlayer, GO_SALARY);
-                OnMessage?.Invoke($"{CurrentPlayer.Name} passed GO and collected ${GO_SALARY}!");
+                OnMessage?.Invoke($"{CurrentPlayer.Name} melewati MULAI dan menerima ${GO_SALARY}!");
             }
 
             CurrentPlayer.PathIndex = position;
@@ -346,7 +346,7 @@ namespace MonopolyApp.Controllers
             CurrentPlayer.CurrentTile = Board.Path[JAIL_POSITION];
             CurrentPlayer.PlayerState = PlayerState.InJail;
             _playerJailTurns[CurrentPlayer] = 0;
-            OnMessage?.Invoke($"{CurrentPlayer.Name} was sent to Jail!");
+            OnMessage?.Invoke($"{CurrentPlayer.Name} masuk Penjara!");
         }
 
         public void OnLand()
@@ -592,26 +592,26 @@ namespace MonopolyApp.Controllers
         {
             if (asset.Owner != player)
             {
-                OnMessage?.Invoke("Player doesn't own this property.");
+                OnMessage?.Invoke("Pemain tidak memiliki properti ini.");
                 return false;
             }
 
             if (asset.AssetCondition == AssetCondition.Mortgage)
             {
-                OnMessage?.Invoke("Property is already mortgaged.");
+                OnMessage?.Invoke("Properti sudah di-mortgage.");
                 return false;
             }
 
             if (asset.AmountHouse > 0)
             {
-                OnMessage?.Invoke("Must sell all houses before mortgaging.");
+                OnMessage?.Invoke("Harus jual semua rumah sebelum mortgage.");
                 return false;
             }
 
             asset.AssetCondition = AssetCondition.Mortgage;
             int mortgageValue = GetMortgageValue(asset);
             AddMoney(player, mortgageValue);
-            OnMessage?.Invoke($"{player.Name} mortgaged {asset.Name} for ${mortgageValue}.");
+            OnMessage?.Invoke($"{player.Name} mortgage {asset.Name} seharga ${mortgageValue}.");
             return true;
         }
 
@@ -619,25 +619,25 @@ namespace MonopolyApp.Controllers
         {
             if (asset.Owner != player)
             {
-                OnMessage?.Invoke("Player doesn't own this property.");
+                OnMessage?.Invoke("Pemain tidak memiliki properti ini.");
                 return false;
             }
 
             if (asset.AssetCondition != AssetCondition.Mortgage)
             {
-                OnMessage?.Invoke("Property is not mortgaged.");
+                OnMessage?.Invoke("Properti tidak di-mortgage.");
                 return false;
             }
 
             int unmortgageValue = GetUnmortgageCost(asset);
             if (!SubtractMoney(player, unmortgageValue))
             {
-                OnMessage?.Invoke($"Not enough money to unmortgage. Need ${unmortgageValue}.");
+                OnMessage?.Invoke($"Uang tidak cukup untuk unmortgage. Butuh ${unmortgageValue}.");
                 return false;
             }
 
             asset.AssetCondition = AssetCondition.Normal;
-            OnMessage?.Invoke($"{player.Name} unmortgaged {asset.Name} for ${unmortgageValue}.");
+            OnMessage?.Invoke($"{player.Name} unmortgage {asset.Name} seharga ${unmortgageValue}.");
             return true;
         }
 
@@ -796,7 +796,7 @@ namespace MonopolyApp.Controllers
             {
                 player.PlayerState = PlayerState.Bankrupt;
                 OnPlayerBankrupt?.Invoke(player);
-                OnMessage?.Invoke($"{player.Name} is BANKRUPT!");
+                OnMessage?.Invoke($"{player.Name} BANGKRUT!");
 
                 // Return assets to bank
                 foreach (var asset in player.Assets.ToList())

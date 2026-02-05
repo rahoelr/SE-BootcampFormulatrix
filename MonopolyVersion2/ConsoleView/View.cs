@@ -58,14 +58,14 @@ public class ConsoleView
         {
             case 0:
                 // Top border
-                Console.Write("┌");
-                Console.Write(new string('─', TILE_WIDTH - 2));
-                Console.Write("┐");
+                Console.Write("+");
+                Console.Write(new string('-', TILE_WIDTH - 2));
+                Console.Write("+");
                 break;
 
             case 1:
                 // Tile content
-                Console.Write("│");
+                Console.Write("|");
                 
                 string displayName = GetShortName(tile.Name);
                 string playerMarkers = GetPlayerMarkers(playersOnTile);
@@ -75,12 +75,12 @@ public class ConsoleView
                     content = content.Substring(0, TILE_WIDTH - 2);
                 
                 Console.Write(content.PadRight(TILE_WIDTH - 2));
-                Console.Write("│");
+                Console.Write("|");
                 break;
 
             case 2:
                 // Bottom info (price or special)
-                Console.Write("│");
+                Console.Write("|");
                 
                 string info = GetSpecialTileInfo(tile);
 
@@ -88,7 +88,7 @@ public class ConsoleView
                     info = info.Substring(0, TILE_WIDTH - 2);
                 
                 Console.Write(info.PadRight(TILE_WIDTH - 2));
-                Console.Write("│");
+                Console.Write("|");
                 break;
         }
     }
@@ -126,7 +126,7 @@ public class ConsoleView
             { "Perusahaan", "Per" },
             { "Listrik", "List" },
             { "Pajak", "Pjk" },
-            { "Penjara", "Jail" },
+            { "Penjara", "Pnjra" },
             { "Parkir Gratis", "Parkir" },
             { "Kesempatan", "Ksmptn" },
             { "Dana Umum", "Dana" }
@@ -165,7 +165,7 @@ public class ConsoleView
             EffectType.Tax => tile.Name.Contains("Mewah") ? "-$100" : "-$200",
             EffectType.CommunityChest => "DANA",
             EffectType.Chance => "KSMPTN",
-            EffectType.GoToJail => "JAIL!",
+            EffectType.GoToJail => "PENJARA!",
             EffectType.FreeParking => "PARKIR",
             _ => ""
         };
@@ -174,41 +174,60 @@ public class ConsoleView
     public void ShowPlayerInfo(IPlayer player, int playerMoney)
     {
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"═══ {player.Name} [{player.Name[0]}] ═══");
-        Console.ResetColor();
+        Console.WriteLine($"+-------------------------------------+");
+        Console.WriteLine($"|  {player.Name} [{player.Name[0]}]");
+        Console.WriteLine($"+-------------------------------------+");
         
-        Console.WriteLine($"  Uang: ${playerMoney}");
-        Console.WriteLine($"  Posisi: {player.CurrentTile?.Name ?? "Unknown"} (Tile {player.PathIndex})");
-        Console.WriteLine($"  Status: {player.PlayerState}");
+        Console.WriteLine($"|  Uang    : ${playerMoney}");
+        Console.WriteLine($"|  Posisi  : {player.CurrentTile?.Name ?? "Tidak Diketahui"} (#{player.PathIndex})");
+        
+        string statusText = player.PlayerState switch
+        {
+            PlayerState.InJail => "Di Penjara",
+            PlayerState.Bankrupt => "Bangkrut",
+            _ => "Normal"
+        };
+        Console.WriteLine($"|  Status  : {statusText}");
         
         if (player.Assets.Count > 0)
         {
-            Console.WriteLine($"  Properti ({player.Assets.Count}):");
+            Console.WriteLine($"|  Properti: {player.Assets.Count} buah");
             foreach (var asset in player.Assets)
             {
                 string status = asset.AssetCondition == AssetCondition.Mortgage ? " [M]" : "";
                 string houses = asset.AmountHouse > 0 ? $" [{new string('H', Math.Min(asset.AmountHouse, 4))}{(asset.AmountHouse == 5 ? "!" : "")}]" : "";
-                Console.WriteLine($"    - {asset.Name}{status}{houses}");
+                Console.WriteLine($"|    - {asset.Name}{status}{houses}");
             }
         }
+        else
+        {
+            Console.WriteLine($"|  Properti: -");
+        }
+        Console.WriteLine($"+-------------------------------------+");
     }
 
     public void ShowAllPlayersInfo(List<IPlayer> players, Dictionary<IPlayer, int> playerMoney)
     {
-        Console.WriteLine("\n╔═══════════════════════════════════════════╗");
-        Console.WriteLine("║           STATUS PEMAIN                   ║");
-        Console.WriteLine("╠═══════════════════════════════════════════╣");
+        Console.WriteLine();
+        Console.WriteLine("+---+--------------+------------+-------+-------------+");
+        Console.WriteLine("| # | Nama         | Uang       | Props | Status      |");
+        Console.WriteLine("+---+--------------+------------+-------+-------------+");
         
         foreach (var player in players)
         {
-            string status = player.PlayerState == PlayerState.Bankrupt ? " (BANGKRUT)" : "";
-            string jail = player.PlayerState == PlayerState.InJail ? " [PENJARA]" : "";
+            string status = player.PlayerState switch
+            {
+                PlayerState.Bankrupt => "BANGKRUT",
+                PlayerState.InJail => "DI PENJARA",
+                _ => "Aktif"
+            };
+            
             int money = playerMoney.ContainsKey(player) ? playerMoney[player] : 0;
-            Console.WriteLine($"║ {player.Name[0]} {player.Name,-12} ${money,-8} {player.Assets.Count} props{status}{jail}");
+            
+            Console.WriteLine($"| {player.Name[0]} | {player.Name,-12} | ${money,-9} | {player.Assets.Count,-5} | {status,-11} |");
         }
         
-        Console.WriteLine("╚═══════════════════════════════════════════╝");
+        Console.WriteLine("+---+--------------+------------+-------+-------------+");
     }
 
     public void ShowMessage(string message)
@@ -218,73 +237,60 @@ public class ConsoleView
 
     public void ShowError(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"ERROR: {message}");
-        Console.ResetColor();
+        Console.WriteLine($"[ERROR] {message}");
     }
 
     public void ShowSuccess(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Green;
         Console.WriteLine(message);
-        Console.ResetColor();
     }
 
     public void ShowWarning(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine(message);
-        Console.ResetColor();
+        Console.WriteLine($"[!] {message}");
     }
 
     public void ShowDiceRoll(int dice1, int dice2)
     {
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("  ╔═══╗ ╔═══╗");
-        Console.WriteLine($"  ║ {dice1} ║ ║ {dice2} ║");
-        Console.WriteLine("  ╚═══╝ ╚═══╝");
-        Console.WriteLine($"  Total: {dice1 + dice2}");
+        Console.WriteLine("  +---+ +---+");
+        Console.WriteLine($"  | {dice1} | | {dice2} |   Total: {dice1 + dice2}");
+        Console.WriteLine("  +---+ +---+");
         if (dice1 == dice2)
         {
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("  GANDA!");
+            Console.WriteLine("  ** GANDA! **");
         }
-        Console.ResetColor();
     }
 
     public void ShowCard(ICard card)
     {
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Magenta;
-        Console.WriteLine("╔══════════════════════════════════════╗");
-        Console.WriteLine($"║  {card.Name,-34}  ║");
-        Console.WriteLine("╠══════════════════════════════════════╣");
+        Console.WriteLine("+--------------------------------------+");
+        Console.WriteLine($"|  {card.Name,-34}  |");
+        Console.WriteLine("+--------------------------------------+");
         
         // Word wrap description
         string desc = card?.Description ?? "";
         while (desc.Length > 34)
         {
-            Console.WriteLine($"║  {desc.Substring(0, 34)}  ║");
+            Console.WriteLine($"|  {desc.Substring(0, 34)}  |");
             desc = desc.Substring(34);
         }
-        Console.WriteLine($"║  {desc,-34}  ║");
-        Console.WriteLine("╚══════════════════════════════════════╝");
-        Console.ResetColor();
+        Console.WriteLine($"|  {desc,-34}  |");
+        Console.WriteLine("+--------------------------------------+");
     }
 
     public void ShowMenu(string title, List<string> options)
     {
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($"═══ {title} ═══");
-        Console.ResetColor();
+        Console.WriteLine($"+--- {title} ---");
         
         for (int i = 0; i < options.Count; i++)
         {
-            Console.WriteLine($"  [{i + 1}] {options[i]}");
+            Console.WriteLine($"|  [{i + 1}] {options[i]}");
         }
-        Console.Write("\nPilihan Anda: ");
+        Console.WriteLine("+------------------------");
+        Console.Write("Pilihan: ");
     }
 
     public int GetPlayerChoice(int maxOptions)
@@ -320,34 +326,32 @@ public class ConsoleView
     public void ShowPropertyDetails(IAsset asset)
     {
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("╔══════════════════════════════════════╗");
-        Console.WriteLine($"║  {asset.Name,-34}  ║");
-        Console.WriteLine("╠══════════════════════════════════════╣");
-        Console.ResetColor();
+        Console.WriteLine("+--------------------------------------+");
+        Console.WriteLine($"|  {asset.Name,-34}  |");
+        Console.WriteLine("+--------------------------------------+");
         
-        Console.WriteLine($"║  Harga: ${asset.Value,-28}  ║");
-        Console.WriteLine($"║  Tipe: {asset.TypeAsset,-29}  ║");
+        Console.WriteLine($"|  Harga: ${asset.Value,-28}|");
+        Console.WriteLine($"|  Tipe: {asset.TypeAsset,-29}|");
         
         if (asset.TypeAsset == TypeAsset.RealEstate)
         {
             int houseCost = asset.Value / 2;
             int baseRent = asset.Value / 10;
-            Console.WriteLine($"║  Biaya Rumah: ${houseCost,-23}  ║");
-            Console.WriteLine($"║  Sewa Dasar: ${baseRent,-24}  ║");
+            Console.WriteLine($"|  Biaya Rumah: ${houseCost,-22}|");
+            Console.WriteLine($"|  Sewa Dasar: ${baseRent,-23}|");
         }
         
         int mortgageValue = asset.Value / 2;
-        Console.WriteLine($"║  Nilai Mortgage: ${mortgageValue,-19}  ║");
+        Console.WriteLine($"|  Nilai Mortgage: ${mortgageValue,-18}|");
         
         if (asset.Owner != null)
         {
-            Console.WriteLine($"║  Pemilik: {asset.Owner.Name,-28}  ║");
-            Console.WriteLine($"║  Rumah: {asset.AmountHouse,-27}  ║");
-            Console.WriteLine($"║  Status: {asset.AssetCondition,-27}  ║");
+            Console.WriteLine($"|  Pemilik: {asset.Owner.Name,-26}|");
+            Console.WriteLine($"|  Rumah: {asset.AmountHouse,-28}|");
+            Console.WriteLine($"|  Status: {asset.AssetCondition,-27}|");
         }
         
-        Console.WriteLine("╚══════════════════════════════════════╝");
+        Console.WriteLine("+--------------------------------------+");
     }
 
     public void ShowTradeOffer(IPlayer from, IPlayer to, 
@@ -355,57 +359,62 @@ public class ConsoleView
                                 List<IAsset> offerTo, int moneyTo)
     {
         Console.WriteLine();
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine("╔══════════════════════════════════════════════════════╗");
-        Console.WriteLine("║                 PENAWARAN PERDAGANGAN                 ║");
-        Console.WriteLine("╠══════════════════════════════════════════════════════╣");
-        Console.ResetColor();
+        Console.WriteLine("+------------------------------------------------------+");
+        Console.WriteLine("|                 PENAWARAN PERDAGANGAN                |");
+        Console.WriteLine("+------------------------------------------------------+");
         
-        Console.WriteLine($"║  {from.Name} menawarkan:                              ");
+        Console.WriteLine($"|  {from.Name} menawarkan:");
         foreach (var asset in offerFrom)
         {
-            Console.WriteLine($"║    - {asset.Name}");
+            Console.WriteLine($"|    - {asset.Name}");
         }
         if (moneyFrom > 0)
-            Console.WriteLine($"║    + ${moneyFrom}");
+            Console.WriteLine($"|    + ${moneyFrom}");
         
-        Console.WriteLine("║                                                       ");
-        Console.WriteLine($"║  Untuk ditukar dengan milik {to.Name}:                ");
+        Console.WriteLine("|");
+        Console.WriteLine($"|  Untuk ditukar dengan milik {to.Name}:");
         foreach (var asset in offerTo)
         {
-            Console.WriteLine($"║    - {asset.Name}");
+            Console.WriteLine($"|    - {asset.Name}");
         }
         if (moneyTo > 0)
-            Console.WriteLine($"║    + ${moneyTo}");
+            Console.WriteLine($"|    + ${moneyTo}");
         
-        Console.WriteLine("╚══════════════════════════════════════════════════════╝");
+        Console.WriteLine("+------------------------------------------------------+");
     }
 
     public void ShowGameOver(IPlayer winner, int winnerMoney)
     {
         Console.Clear();
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("TAMAT !!!");
-        Console.ForegroundColor = ConsoleColor.Green;
-        Console.WriteLine($"\n    PEMENANG: {winner.Name}!");
-        Console.WriteLine($"    Total Uang: ${winnerMoney}");
-        Console.WriteLine($"    Properti: {winner.Assets.Count}");
-        Console.ResetColor();
+        Console.WriteLine();
+        Console.WriteLine("  +====================================+");
+        Console.WriteLine("  |           GAME SELESAI!            |");
+        Console.WriteLine("  +====================================+");
+        Console.WriteLine($"  |  PEMENANG: {winner.Name,-24}|");
+        Console.WriteLine($"  |  Total Uang: ${winnerMoney,-21}|");
+        Console.WriteLine($"  |  Properti: {winner.Assets.Count,-24}|");
+        Console.WriteLine("  +====================================+");
     }
 
     public void ShowWelcome()
     {
         Console.Clear();
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine("Monopoly Gaskeunnnn!!!");
-        Console.ResetColor();
-        Console.WriteLine("\n    Tekan tombol apa saja untuk mulai...");
+        Console.WriteLine(@"
+  __  __                               _       
+ |  \/  | ___  _ __   ___  _ __   ___ | |_   _ 
+ | |\/| |/ _ \| '_ \ / _ \| '_ \ / _ \| | | | |
+ | |  | | (_) | | | | (_) | |_) | (_) | | |_| |
+ |_|  |_|\___/|_| |_|\___/| .__/ \___/|_|\__, |
+                          |_|            |___/ 
+        ");
+        Console.WriteLine("        === VERSI INDONESIA ===");
+        Console.WriteLine("\n  Tekan tombol apa saja untuk mulai...");
         Console.ReadKey();
     }
 
     public void WaitForKeyPress()
     {
-        Console.WriteLine("\nTekan tombol apa saja untuk lanjut...");
+        Console.WriteLine("\n[Tekan tombol untuk lanjut...]");
         Console.ReadKey();
     }
 }
