@@ -66,13 +66,48 @@ namespace MonopolyApp.Controllers
             {
                 PlayerAssets[player] = new List<IAsset>();
                 PlayerMoney[player] = new List<IMoney>();
+                
+                // Inisialisasi uang awal dari player.Money ($1500)
+                if (player.Money != null && player.Money.Balance > 0)
+                {
+                    PlayerMoney[player].Add(new Money(player.Money.Balance));
+                }
+                
                 player.PathIndex = 0;
                 player.CurrentTile = Board.Path[0];
             }
 
+            // Buat Asset untuk setiap tile yang bisa dibeli
             foreach (var tile in Board.Path)
             {
-                TileAssets[tile] = null;
+                if (tile.TilesType == TilesType.Property || 
+                    tile.TilesType == TilesType.Railroad || 
+                    tile.TilesType == TilesType.Utility)
+                {
+                    // Cast tile untuk akses properti Value dan TypeAsset
+                    var tileModel = tile as Tile;
+                    if (tileModel != null)
+                    {
+                        // Tentukan TypeAsset berdasarkan TilesType
+                        TypeAsset assetType = tile.TilesType switch
+                        {
+                            TilesType.Railroad => TypeAsset.Railroad,
+                            TilesType.Utility => TypeAsset.PublicService,
+                            _ => TypeAsset.RealEstate
+                        };
+                        
+                        var asset = new Asset(tile.Name, assetType, tileModel.Value);
+                        TileAssets[tile] = asset;
+                    }
+                    else
+                    {
+                        TileAssets[tile] = null;
+                    }
+                }
+                else
+                {
+                    TileAssets[tile] = null;
+                }
             }
         }
 
@@ -112,7 +147,6 @@ namespace MonopolyApp.Controllers
             OnDiceRolled?.Invoke(CurrentPlayer, dice1, dice2);
             int totalMove = dice1 + dice2;
             OnMessage?.Invoke($"{CurrentPlayer.Name} melempar dadu dan mendapatkan {dice1} dan {dice2} dengan total {totalMove}");
-            OnDiceRolled?.Invoke(CurrentPlayer, dice1, dice2);
             return (dice1, dice2);
         }
 
@@ -749,8 +783,9 @@ namespace MonopolyApp.Controllers
         public bool CheckIsBankrupt(IPlayer player)
         {
             int totalValue = CalculatePlayerTotalAssetsValue(player);
+            int playerMoney = GetPlayerMoney(player);
 
-            if (player.Money.Balance + totalValue < 0)
+            if (playerMoney + totalValue < 0)
             {
                 player.PlayerState = PlayerState.Bankrupt;
                 OnPlayerBankrupt?.Invoke(player);
