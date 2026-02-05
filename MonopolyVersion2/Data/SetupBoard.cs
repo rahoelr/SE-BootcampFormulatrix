@@ -223,7 +223,7 @@ public static class SetupBoard
     {
         var tile = new Tile(new TilePos(0, 0), name, display, TilesType.Railroad, EffectType.Nothing);
         tile.Value = 200;
-        tile.TypeAsset = TypeAsset.RealEstate;
+        tile.TypeAsset = TypeAsset.Railroad;
         return tile;
     }
 
