@@ -1,4 +1,6 @@
-public struct TilePos
+namespace MonopolyApp.Structs
+{
+    public struct TilePos
 {
     public int X;
     public int Y;
@@ -13,4 +15,5 @@ public struct TilePos
     {
         return $"({X}), {Y})";
     }
+}
 }

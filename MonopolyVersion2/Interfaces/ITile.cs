@@ -1,4 +1,5 @@
 using MonopolyApp.Enums;
+using MonopolyApp.Structs;
 
 namespace MonopolyApp.Interfaces
 {
