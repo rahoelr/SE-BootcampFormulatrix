@@ -1,10 +1,13 @@
 
 namespace MonopolyApp.Enums
 {
+
+    // ambil dari asset / properti yang dimiliki player
     public enum TypeAsset
     {
         RealEstate,
-        PublicService
+        PublicService,
+        Railroad,
 
     }
 }

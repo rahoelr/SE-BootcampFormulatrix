@@ -12,47 +12,46 @@ public static class SetupBoard
         var board = new Board(11, 11);
         int pathIndex = 0;
 
-        // Create tiles for the path (going clockwise from bottom-left GO)
         // Bottom row (left to right): GO -> Jail
-        //0,10 -> 10,10 kiri ke kanan cuy
         var bottomRow = CreateBottomRow();
         for (int i = 0; i < bottomRow.Count; i++)
         {
             var tile = bottomRow[i];
-            board.SetTile(i, 10, tile);
+            tile.Pos = new TilePos(i, 10);
+            board.Grid[10, i] = tile;
             tile.PathIndex = pathIndex++;
             board.Path.Add(tile);
         }
 
-        // 10,9 -> 10,1 (bawah ke atas)
-        // Right column (bottom to top, excluding corners)
+        // Right column (bottom to top)
         var rightColumn = CreateRightColumn();
         for (int i = 0; i < rightColumn.Count; i++)
         {
             var tile = rightColumn[i];
-            board.SetTile(10, 9 - i, tile);
+            tile.Pos = new TilePos(10, 9 - i);
+            board.Grid[9 - i, 10] = tile;
             tile.PathIndex = pathIndex++;
             board.Path.Add(tile);
         }
 
-        // 10,0 -> 0,0 kanan ke kiri
-        // Top row (right to left): Free Parking -> Go To Jail
+        // Top row (right to left)
         var topRow = CreateTopRow();
         for (int i = 0; i < topRow.Count; i++)
         {
             var tile = topRow[i];
-            board.SetTile(10 - i, 0, tile);
+            tile.Pos = new TilePos(10 - i, 0);
+            board.Grid[0, 10 - i] = tile;
             tile.PathIndex = pathIndex++;
             board.Path.Add(tile);
         }
 
-        // dari 0,1 -> 0,9 atas ke bawah
-        // Left column (top to bottom, excluding corners)
+        // Left column (top to bottom)
         var leftColumn = CreateLeftColumn();
         for (int i = 0; i < leftColumn.Count; i++)
         {
             var tile = leftColumn[i];
-            board.SetTile(0, 1 + i, tile);
+            tile.Pos = new TilePos(0, 1 + i);
+            board.Grid[1 + i, 0] = tile;
             tile.PathIndex = pathIndex++;
             board.Path.Add(tile);
         }
@@ -65,37 +64,37 @@ public static class SetupBoard
         return new List<Tile>
         {
             // GO (Position 0)
-            CreateSpecialTile("GO", 'G', TilesType.CORNER, EffectType.g),
+            CreateSpecialTile("MULAI", 'M', TilesType.Corner, EffectType.Go),
             
-            // Mediterranean Avenue (Position 1)
-            CreatePropertyTile("Mediterranean Ave", 'M', 60, new[] { 2, 10, 30, 90, 160, 250 }, 50, 1),
+            // Aceh (Position 1)
+            CreatePropertyTile("Aceh", 'A', 60, new[] { 2, 10, 30, 90, 160, 250 }, 50, 1),
             
-            // Community Chest (Position 2)
-            CreateSpecialTile("Community Chest", 'C', TilesType.SPECIAL, EffectType.COMMUNITY_CHEST),
+            // Dana Umum (Position 2)
+            CreateSpecialTile("Dana Umum", 'D', TilesType.Special, EffectType.CommunityChest),
             
-            // Baltic Avenue (Position 3)
-            CreatePropertyTile("Baltic Ave", 'B', 60, new[] { 4, 20, 60, 180, 320, 450 }, 50, 1),
+            // Medan (Position 3)
+            CreatePropertyTile("Medan", 'M', 60, new[] { 4, 20, 60, 180, 320, 450 }, 50, 1),
             
-            // Income Tax (Position 4)
-            CreateSpecialTile("Income Tax", 'T', TilesType.SPECIAL, EffectType.TAX),
+            // Pajak Penghasilan (Position 4)
+            CreateSpecialTile("Pajak Penghasilan", 'P', TilesType.Special, EffectType.Tax),
             
-            // Reading Railroad (Position 5)
-            CreateRailroadTile("Reading RR", 'R'),
+            // Stasiun Gambir (Position 5)
+            CreateRailroadTile("Stasiun Gambir", 'G'),
             
-            // Oriental Avenue (Position 6)
-            CreatePropertyTile("Oriental Ave", 'O', 100, new[] { 6, 30, 90, 270, 400, 550 }, 50, 2),
+            // Palembang (Position 6)
+            CreatePropertyTile("Palembang", 'P', 100, new[] { 6, 30, 90, 270, 400, 550 }, 50, 2),
             
-            // Chance (Position 7)
-            CreateSpecialTile("Chance", '?', TilesType.SPECIAL, EffectType.CHANCE),
+            // Kesempatan (Position 7)
+            CreateSpecialTile("Kesempatan", 'K', TilesType.Special, EffectType.Chance),
             
-            // Vermont Avenue (Position 8)
-            CreatePropertyTile("Vermont Ave", 'V', 100, new[] { 6, 30, 90, 270, 400, 550 }, 50, 2),
+            // Padang (Position 8)
+            CreatePropertyTile("Padang", 'P', 100, new[] { 6, 30, 90, 270, 400, 550 }, 50, 2),
             
-            // Connecticut Avenue (Position 9)
-            CreatePropertyTile("Connecticut Ave", 'C', 120, new[] { 8, 40, 100, 300, 450, 600 }, 50, 2),
+            // Pekanbaru (Position 9)
+            CreatePropertyTile("Pekanbaru", 'P', 120, new[] { 8, 40, 100, 300, 450, 600 }, 50, 2),
             
-            // Jail / Just Visiting (Position 10)
-            CreateSpecialTile("Jail", 'J', TilesType.CORNER, EffectType.JAIL)
+            // Penjara (Position 10)
+            CreateSpecialTile("Penjara", 'J', TilesType.Corner, EffectType.GoToJail)
         };
     }
 
@@ -103,32 +102,32 @@ public static class SetupBoard
     {
         return new List<Tile>
         {
-            // St. Charles Place (Position 11)
-            CreatePropertyTile("St. Charles Pl", 'S', 140, new[] { 10, 50, 150, 450, 625, 750 }, 100, 3),
+            // Bandung (Position 11)
+            CreatePropertyTile("Bandung", 'B', 140, new[] { 10, 50, 150, 450, 625, 750 }, 100, 3),
             
-            // Electric Company (Position 12)
-            CreateUtilityTile("Electric Co", 'E'),
+            // Perusahaan Listrik (Position 12)
+            CreateUtilityTile("Perusahaan Listrik", 'L'),
             
-            // States Avenue (Position 13)
-            CreatePropertyTile("States Ave", 'S', 140, new[] { 10, 50, 150, 450, 625, 750 }, 100, 3),
+            // Bogor (Position 13)
+            CreatePropertyTile("Bogor", 'B', 140, new[] { 10, 50, 150, 450, 625, 750 }, 100, 3),
             
-            // Virginia Avenue (Position 14)
-            CreatePropertyTile("Virginia Ave", 'V', 160, new[] { 12, 60, 180, 500, 700, 900 }, 100, 3),
+            // Tangerang (Position 14)
+            CreatePropertyTile("Tangerang", 'T', 160, new[] { 12, 60, 180, 500, 700, 900 }, 100, 3),
             
-            // Pennsylvania Railroad (Position 15)
-            CreateRailroadTile("Pennsylvania RR", 'P'),
+            // Stasiun Pasar Senen (Position 15)
+            CreateRailroadTile("Stasiun Pasar Senen", 'S'),
             
-            // St. James Place (Position 16)
-            CreatePropertyTile("St. James Pl", 'S', 180, new[] { 14, 70, 200, 550, 750, 950 }, 100, 4),
+            // Bekasi (Position 16)
+            CreatePropertyTile("Bekasi", 'B', 180, new[] { 14, 70, 200, 550, 750, 950 }, 100, 4),
             
-            // Community Chest (Position 17)
-            CreateSpecialTile("Community Chest", 'C', TilesType.SPECIAL, EffectType.COMMUNITY_CHEST),
+            // Dana Umum (Position 17)
+            CreateSpecialTile("Dana Umum", 'D', TilesType.Special, EffectType.CommunityChest),
             
-            // Tennessee Avenue (Position 18)
-            CreatePropertyTile("Tennessee Ave", 'T', 180, new[] { 14, 70, 200, 550, 750, 950 }, 100, 4),
+            // Depok (Position 18)
+            CreatePropertyTile("Depok", 'D', 180, new[] { 14, 70, 200, 550, 750, 950 }, 100, 4),
             
-            // New York Avenue (Position 19)
-            CreatePropertyTile("New York Ave", 'N', 200, new[] { 16, 80, 220, 600, 800, 1000 }, 100, 4)
+            // Jakarta (Position 19)
+            CreatePropertyTile("Jakarta", 'J', 200, new[] { 16, 80, 220, 600, 800, 1000 }, 100, 4)
         };
     }
 
@@ -136,38 +135,38 @@ public static class SetupBoard
     {
         return new List<Tile>
         {
-            // Free Parking (Position 20)
-            CreateSpecialTile("Free Parking", 'F', TilesType.CORNER, EffectType.FREE_PARKING),
+            // Parkir Gratis (Position 20)
+            CreateSpecialTile("Parkir Gratis", 'P', TilesType.Corner, EffectType.FreeParking),
             
-            // Kentucky Avenue (Position 21)
-            CreatePropertyTile("Kentucky Ave", 'K', 220, new[] { 18, 90, 250, 700, 875, 1050 }, 150, 5),
+            // Semarang (Position 21)
+            CreatePropertyTile("Semarang", 'S', 220, new[] { 18, 90, 250, 700, 875, 1050 }, 150, 5),
             
-            // Chance (Position 22)
-            CreateSpecialTile("Chance", '?', TilesType.SPECIAL, EffectType.CHANCE),
+            // Kesempatan (Position 22)
+            CreateSpecialTile("Kesempatan", 'K', TilesType.Special, EffectType.Chance),
             
-            // Indiana Avenue (Position 23)
-            CreatePropertyTile("Indiana Ave", 'I', 220, new[] { 18, 90, 250, 700, 875, 1050 }, 150, 5),
+            // Yogyakarta (Position 23)
+            CreatePropertyTile("Yogyakarta", 'Y', 220, new[] { 18, 90, 250, 700, 875, 1050 }, 150, 5),
             
-            // Illinois Avenue (Position 24)
-            CreatePropertyTile("Illinois Ave", 'I', 240, new[] { 20, 100, 300, 750, 925, 1100 }, 150, 5),
+            // Solo (Position 24)
+            CreatePropertyTile("Solo", 'S', 240, new[] { 20, 100, 300, 750, 925, 1100 }, 150, 5),
             
-            // B&O Railroad (Position 25)
-            CreateRailroadTile("B&O RR", 'B'),
+            // Stasiun Jatinegara (Position 25)
+            CreateRailroadTile("Stasiun Jatinegara", 'J'),
             
-            // Atlantic Avenue (Position 26)
-            CreatePropertyTile("Atlantic Ave", 'A', 260, new[] { 22, 110, 330, 800, 975, 1150 }, 150, 6),
+            // Malang (Position 26)
+            CreatePropertyTile("Malang", 'M', 260, new[] { 22, 110, 330, 800, 975, 1150 }, 150, 6),
             
-            // Ventnor Avenue (Position 27)
-            CreatePropertyTile("Ventnor Ave", 'V', 260, new[] { 22, 110, 330, 800, 975, 1150 }, 150, 6),
+            // Kediri (Position 27)
+            CreatePropertyTile("Kediri", 'K', 260, new[] { 22, 110, 330, 800, 975, 1150 }, 150, 6),
             
-            // Water Works (Position 28)
-            CreateUtilityTile("Water Works", 'W'),
+            // Perusahaan Air (Position 28)
+            CreateUtilityTile("Perusahaan Air", 'A'),
             
-            // Marvin Gardens (Position 29)
-            CreatePropertyTile("Marvin Gardens", 'M', 280, new[] { 24, 120, 360, 850, 1025, 1200 }, 150, 6),
+            // Surabaya (Position 29)
+            CreatePropertyTile("Surabaya", 'S', 280, new[] { 24, 120, 360, 850, 1025, 1200 }, 150, 6),
             
-            // Go To Jail (Position 30)
-            CreateSpecialTile("Go To Jail", 'X', TilesType.CORNER, EffectType.GO_TO_JAIL)
+            // Ke Penjara (Position 30)
+            CreateSpecialTile("Ke Penjara", 'X', TilesType.Corner, EffectType.GoToJail)
         };
     }
 
@@ -175,54 +174,56 @@ public static class SetupBoard
     {
         return new List<Tile>
         {
-            // Pacific Avenue (Position 31)
-            CreatePropertyTile("Pacific Ave", 'P', 300, new[] { 26, 130, 390, 900, 1100, 1275 }, 200, 7),
+            // Denpasar (Position 31)
+            CreatePropertyTile("Denpasar", 'D', 300, new[] { 26, 130, 390, 900, 1100, 1275 }, 200, 7),
             
-            // North Carolina Avenue (Position 32)
-            CreatePropertyTile("N. Carolina Ave", 'N', 300, new[] { 26, 130, 390, 900, 1100, 1275 }, 200, 7),
+            // Mataram (Position 32)
+            CreatePropertyTile("Mataram", 'M', 300, new[] { 26, 130, 390, 900, 1100, 1275 }, 200, 7),
             
-            // Community Chest (Position 33)
-            CreateSpecialTile("Community Chest", 'C', TilesType.SPECIAL, EffectType.COMMUNITY_CHEST),
+            // Dana Umum (Position 33)
+            CreateSpecialTile("Dana Umum", 'D', TilesType.Special, EffectType.CommunityChest),
             
-            // Pennsylvania Avenue (Position 34)
-            CreatePropertyTile("Pennsylvania Ave", 'P', 320, new[] { 28, 150, 450, 1000, 1200, 1400 }, 200, 7),
+            // Makassar (Position 34)
+            CreatePropertyTile("Makassar", 'M', 320, new[] { 28, 150, 450, 1000, 1200, 1400 }, 200, 7),
             
-            // Short Line Railroad (Position 35)
-            CreateRailroadTile("Short Line RR", 'S'),
+            // Stasiun Manggarai (Position 35)
+            CreateRailroadTile("Stasiun Manggarai", 'M'),
             
-            // Chance (Position 36)
-            CreateSpecialTile("Chance", '?', TilesType.SPECIAL, EffectType.CHANCE),
+            // Kesempatan (Position 36)
+            CreateSpecialTile("Kesempatan", 'K', TilesType.Special, EffectType.Chance),
             
-            // Park Place (Position 37)
-            CreatePropertyTile("Park Place", 'P', 350, new[] { 35, 175, 500, 1100, 1300, 1500 }, 200, 8),
+            // Manado (Position 37)
+            CreatePropertyTile("Manado", 'M', 350, new[] { 35, 175, 500, 1100, 1300, 1500 }, 200, 8),
             
-            // Luxury Tax (Position 38)
-            CreateSpecialTile("Luxury Tax", 'L', TilesType.SPECIAL, EffectType.TAX),
+            // Pajak Mewah (Position 38)
+            CreateSpecialTile("Pajak Mewah", 'P', TilesType.Special, EffectType.Tax),
             
-            // Boardwalk (Position 39)
-            CreatePropertyTile("Boardwalk", 'B', 400, new[] { 50, 200, 600, 1400, 1700, 2000 }, 200, 8)
+            // Jayapura (Position 39)
+            CreatePropertyTile("Jayapura", 'J', 400, new[] { 50, 200, 600, 1400, 1700, 2000 }, 200, 8)
         };
     }
-     private static Tile CreatePropertyTile(string name, char display, int price, int[] rent, int houseCost, int colorGroup)
-    {
-        var tile = new Tile(new TilePos(0, 0), name, display, TilesType.PROPERTY, EffectType.NOTHING);
-        tile.Asset = new Asset(name, TypeAsset.RealEstate, price, rent, houseCost, colorGroup);
-        return tile;
-    }
 
-    private static Tile CreateRailroadTile(string name, char display)
+    private static Tile CreatePropertyTile(string name, char display, int price, int[] rent, int houseCost, int colorGroup)
     {
-        var tile = new Tile(new TilePos(0, 0), name, display, TilesType.RAILROAD, EffectType.NOTHING);
-        // Railroad rent: 25, 50, 100, 200 based on number owned
-        tile.Asset = new Asset(name, TypeAsset., 200, new[] { 25, 50, 100, 200 }, 0, 0);
+        var tile = new Tile(new TilePos(0, 0), name, display, TilesType.Property, EffectType.Nothing);
+        tile.Value = price;
+        tile.TypeAsset = TypeAsset.RealEstate;
         return tile;
     }
 
     private static Tile CreateUtilityTile(string name, char display)
     {
-        var tile = new Tile(new TilePos(0, 0), name, display, TilesType.UTILITY, EffectType.Nothing);
-        // Utility rent: 4x dice if 1 owned, 10x dice if both owned
-        tile. = new Asset(name, TypeAsset.PublicService, 150, new[] { 4, 10 }, 0, 0);
+        var tile = new Tile(new TilePos(0, 0), name, display, TilesType.Utility, EffectType.Nothing);
+        tile.Value = 150;
+        tile.TypeAsset = TypeAsset.PublicService;
+        return tile;
+    }
+
+    private static Tile CreateRailroadTile(string name, char display)
+    {
+        var tile = new Tile(new TilePos(0, 0), name, display, TilesType.Railroad, EffectType.Nothing);
+        tile.Value = 200;
+        tile.TypeAsset = TypeAsset.RealEstate;
         return tile;
     }
 
@@ -235,20 +236,20 @@ public static class SetupBoard
     {
         var cards = new List<ICard>
         {
-            new Card("Advance to GO", "Advance to GO (Collect $200)", CardEffect.Move, 0),
-            new Card("Advance to Illinois", "Advance to Illinois Avenue", CardEffect.Move, 24),
-            new Card("Advance to St. Charles", "Advance to St. Charles Place", CardEffect.Move, 11),
-            new Card("Bank Dividend", "Bank pays you dividend of $50", CardEffect.ReceiveMoney, 50),
-            new Card("Get Out of Jail Free", "Get out of Jail free card", CardEffect.GetOutJail, 0),
-            new Card("Go Back 3 Spaces", "Go back 3 spaces", CardEffect.Move, -3),
-            new Card("Go to Jail", "Go directly to jail", CardEffect.GoToJail, 0),
-            new Card("General Repairs", "Make general repairs. Pay $25 per house", CardEffect.PayMoney, 25),
-            new Card("Speeding Fine", "Speeding fine $15", CardEffect.PayMoney, 15),
-            new Card("Advance to Reading RR", "Take a trip to Reading Railroad", CardEffect.Move, 5),
-            new Card("Advance to Boardwalk", "Advance to Boardwalk", CardEffect.Move, 39),
-            new Card("Chairman of the Board", "You have been elected Chairman of the Board. Pay each player $50", CardEffect.PAY_MONEY, 50),
-            new Card("Building Loan", "Your building loan matures. Collect $150", CardEffect.ReceiveMoney, 150),
-            new Card("Crossword Prize", "You have won a crossword competition. Collect $100", CardEffect.ReceiveMoney, 100)
+            new Card("Maju ke MULAI", "Maju ke MULAI (Terima $200)", CardEffect.Move, 0),
+            new Card("Maju ke Solo", "Maju ke Solo", CardEffect.Move, 24),
+            new Card("Maju ke Bandung", "Maju ke Bandung", CardEffect.Move, 11),
+            new Card("Dividen Bank", "Bank membayar dividen $50", CardEffect.ReceiveMoney, 50),
+            new Card("Bebas Penjara", "Kartu bebas dari penjara", CardEffect.GetOutJail, 0),
+            new Card("Mundur 3 Langkah", "Mundur 3 langkah", CardEffect.Move, -3),
+            new Card("Masuk Penjara", "Langsung masuk penjara", CardEffect.GoToJail, 0),
+            new Card("Perbaikan Umum", "Lakukan perbaikan umum. Bayar $25 per rumah", CardEffect.PayMoney, 25),
+            new Card("Denda Kecepatan", "Denda kecepatan $15", CardEffect.PayMoney, 15),
+            new Card("Maju ke Stasiun Gambir", "Perjalanan ke Stasiun Gambir", CardEffect.Move, 5),
+            new Card("Maju ke Jayapura", "Maju ke Jayapura", CardEffect.Move, 39),
+            new Card("Ketua Dewan", "Anda terpilih sebagai Ketua Dewan. Bayar setiap pemain $50", CardEffect.PayMoney, 50),
+            new Card("Pinjaman Bangunan", "Pinjaman bangunan Anda jatuh tempo. Terima $150", CardEffect.ReceiveMoney, 150),
+            new Card("Hadiah Teka-teki", "Anda memenangkan kompetisi teka-teki silang. Terima $100", CardEffect.ReceiveMoney, 100)
         };
 
         return new Decks(cards);

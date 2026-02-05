@@ -1,5 +1,7 @@
 namespace MonopolyApp.Enums
 {
+
+    // ambil dari chance dan community chest
     public enum CardEffect
     {
         ReceiveMoney,

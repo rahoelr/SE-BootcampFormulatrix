@@ -1,8 +1,8 @@
 public enum TilesType
 {
-    CORNER,
-    PROPERTY,
-    RAILROAD,
-    UTILITY,
-    SPECIAL
+    Corner,
+    Property,
+    Railroad,
+    Utility,
+    Special
 }

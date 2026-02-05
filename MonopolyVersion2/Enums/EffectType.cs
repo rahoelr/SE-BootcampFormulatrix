@@ -3,9 +3,11 @@ namespace MonopolyApp.Enums
     public enum EffectType
     {
         Go,
-        CommunityChest,
         Tax,
         GoToJail,
+        Chance,
+        CommunityChest,
+        FreeParking,
         Nothing
     }
 }

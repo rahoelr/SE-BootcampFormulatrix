@@ -18,7 +18,7 @@ namespace MonopolyApp.Models
         public IPlayer? Owner { get; set; }
         public int AmountHouse { get; set; }
 
-        public Tile(TilePos pos, string name, char display = ' ', TilesType type = TilesType.SPECIAL,
+        public Tile(TilePos pos, string name, char display = ' ', TilesType type = TilesType.Special,
                     EffectType effectType = EffectType.Nothing, int? pathIndex = null)
         {
             Pos = pos;
