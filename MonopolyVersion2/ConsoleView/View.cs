@@ -149,9 +149,9 @@ public class ConsoleView
     {
         if (players.Count == 0) return "";
         
-        // Gunakan initial huruf pertama dari nama player
-        var markers = players.Select(p => p.Name[0].ToString()).ToList();
-        return " " + string.Join("", markers);
+        // Gunakan format [X] untuk setiap pemain (huruf kapital)
+        var markers = players.Select(p => $"[{char.ToUpper(p.Name[0])}]").ToList();
+        return string.Join("", markers);
     }
 
     private string GetSpecialTileInfo(ITile tile)
@@ -206,9 +206,9 @@ public class ConsoleView
     public void ShowAllPlayersInfo(List<IPlayer> players, Dictionary<IPlayer, int> playerMoney)
     {
         Console.WriteLine();
-        Console.WriteLine("+---+--------------+------------+-------+-------------+");
-        Console.WriteLine("| # | Nama         | Uang       | Props | Status      |");
-        Console.WriteLine("+---+--------------+------------+-------+-------------+");
+        Console.WriteLine("+---+--------------+------------+-------+--------------+-------------+");
+        Console.WriteLine("| # | Nama         | Uang       | Props | Posisi       | Status      |");
+        Console.WriteLine("+---+--------------+------------+-------+--------------+-------------+");
         
         foreach (var player in players)
         {
@@ -221,10 +221,15 @@ public class ConsoleView
             
             int money = playerMoney.ContainsKey(player) ? playerMoney[player] : 0;
             
-            Console.WriteLine($"| {player.Name[0]} | {player.Name,-12} | ${money,-9} | {player.Assets.Count,-5} | {status,-11} |");
+            // Tambah posisi
+            string tileName = player.CurrentTile?.Name ?? "?";
+            if (tileName.Length > 8) tileName = tileName.Substring(0, 8);
+            string posisi = $"{tileName}#{player.PathIndex}";
+            
+            Console.WriteLine($"| {char.ToUpper(player.Name[0])} | {player.Name,-12} | ${money,-9} | {player.Assets.Count,-5} | {posisi,-12} | {status,-11} |");
         }
         
-        Console.WriteLine("+---+--------------+------------+-------+-------------+");
+        Console.WriteLine("+---+--------------+------------+-------+--------------+-------------+");
     }
 
     public void ShowMessage(string message)
@@ -404,7 +409,6 @@ public class ConsoleView
  |_|  |_|\___/|_| |_|\___/| .__/ \___/|_|\__, |
                           |_|            |___/ 
         ");
-        Console.WriteLine("        === VERSI INDONESIA ===");
         Console.WriteLine("\n  Tekan tombol apa saja untuk mulai...");
         Console.ReadKey();
     }

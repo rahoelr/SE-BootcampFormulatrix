@@ -219,9 +219,17 @@ public class Program
     private static void HandleJailTurn()
     {
         var currentPlayer = _game!.CurrentPlayer;
+        
+        // Increment jail turns dan cek apakah sudah 3 giliran
+        bool canChoose = _game.HandleJailTurn();
+        if (!canChoose)
+        {
+            // Sudah 3 giliran atau state bukan InJail, sudah dihandle di GameController
+            return;
+        }
+        
         int jailTurns = _game.GetJailTurns(currentPlayer);
-
-        _view!.ShowWarning($"{currentPlayer.Name} di Penjara! (Giliran {jailTurns + 1}/3)");
+        _view!.ShowWarning($"{currentPlayer.Name} di Penjara! (Giliran {jailTurns}/3)");
 
         var options = new List<string>
         {
