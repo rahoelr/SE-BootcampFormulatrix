@@ -5,7 +5,7 @@ namespace ConsoleMonopolyApp.Views;
 
 public class ConsoleView
 {
-    private const int TILE_WIDTH = 12;
+    private const int TILE_WIDTH = 14;
     private const int TILE_HEIGHT = 3;
 
     public void ClearScreen()
@@ -101,11 +101,11 @@ public class ConsoleView
         if (y == centerY && line == 1)
         {
             if (x == centerX - 1)
-                Console.Write(" MONOPOLY   ");
+                Console.Write("   MONOPOLY   ");
             else if (x == centerX)
-                Console.Write("            ");
+                Console.Write("              ");
             else if (x == centerX + 1)
-                Console.Write("            ");
+                Console.Write("              ");
             else
                 Console.Write(new string(' ', TILE_WIDTH));
         }
@@ -117,19 +117,16 @@ public class ConsoleView
 
     private string GetShortName(string name)
     {
-        if (name.Length <= 8) return name;
+        if (name.Length <= 10) return name;
 
         // Common abbreviations
         var abbreviations = new Dictionary<string, string>
         {
             { "Stasiun", "Stn" },
             { "Perusahaan", "Per" },
-            { "Listrik", "List" },
-            { "Pajak", "Pjk" },
-            { "Penjara", "Pnjra" },
-            { "Parkir Gratis", "Parkir" },
+            { "Penghasilan", "Phsln" },
             { "Kesempatan", "Ksmptn" },
-            { "Dana Umum", "Dana" }
+            { "Dana Umum", "Dana Umum" }
         };
 
         foreach (var abbr in abbreviations)
@@ -140,9 +137,9 @@ public class ConsoleView
             }
         }
 
-        if (name.Length > 8)
+        if (name.Length > 10)
         {
-            name = name.Substring(0, 8);
+            name = name.Substring(0, 10);
         }
 
         return name;
@@ -163,10 +160,10 @@ public class ConsoleView
         {
             EffectType.Go => "+$200",
             EffectType.Tax => tile.Name.Contains("Mewah") ? "-$100" : "-$200",
-            EffectType.CommunityChest => "DANA",
-            EffectType.Chance => "KSMPTN",
-            EffectType.GoToJail => "PENJARA!",
-            EffectType.FreeParking => "PARKIR",
+            EffectType.CommunityChest => "Dana Umum",
+            EffectType.Chance => "Kesempatan",
+            EffectType.GoToJail => "Ke Penjara",
+            EffectType.FreeParking => "Parkir",
             _ => ""
         };
     }
