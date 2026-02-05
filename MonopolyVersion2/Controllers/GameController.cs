@@ -20,6 +20,8 @@ namespace MonopolyApp.Controllers
         public IPlayer? Winner { get; set; }
         private Dictionary<IPlayer, int> _playerJailTurns { get; set; }
         private Dictionary<IPlayer, int> _playerGetOutOfJailCards { get; set; }
+        
+        private readonly IView _view;
 
         private const int GO_SALARY = 200;
         private const int JAIL_POSITION = 10;
@@ -36,7 +38,7 @@ namespace MonopolyApp.Controllers
         public event Action<IPlayer>? OnPlayerBankrupt;
         public event Action<IPlayer>? OnPlayerWins;
 
-        public GameController(IBoard board, List<IPlayer> players, List<IDice> dices, IDecks communityChestDeck, IDecks chanceDeck)
+        public GameController(IBoard board, List<IPlayer> players, List<IDice> dices, IDecks communityChestDeck, IDecks chanceDeck, IView view)
         {
             if (players.Count < 2 || players.Count > 4)
             {
@@ -51,6 +53,7 @@ namespace MonopolyApp.Controllers
             CurrentTurn = 0;
             IsGameOver = false;
             Winner = null;
+            _view = view;
             _playerGetOutOfJailCards = new Dictionary<IPlayer, int>();
             foreach (var player in players)
             {
@@ -77,7 +80,6 @@ namespace MonopolyApp.Controllers
                 player.CurrentTile = Board.Path[0];
             }
 
-            // Buat Asset untuk setiap tile yang bisa dibeli
             foreach (var tile in Board.Path)
             {
                 if (tile.TilesType == TilesType.Property || 
@@ -109,6 +111,17 @@ namespace MonopolyApp.Controllers
                     TileAssets[tile] = null;
                 }
             }
+            
+            // Subscribe to events for view updates
+            OnMessage += (msg) => _view.ShowMessage(msg);
+            OnDiceRolled += (player, d1, d2) => _view.ShowDiceRoll(d1, d2);
+            OnCardDrawn += (card) => _view.ShowCard(card);
+            OnPlayerBankrupt += (player) => _view.ShowWarning($"{player.Name} bangkrut!");
+            OnPlayerWins += (player) =>
+            {
+                int winnerMoney = GetPlayerMoney(player);
+                _view.ShowGameOver(player, winnerMoney);
+            };
         }
 
         public void StartGame()
@@ -116,6 +129,516 @@ namespace MonopolyApp.Controllers
             OnMessage?.Invoke("Game dimulai! Gas bro!");
             OnMessage?.Invoke($"Pemain : {string.Join(", ", Players.Select(p => p.Name))}");
             OnMessage?.Invoke($"Giliran : {CurrentPlayer.Name}");
+        }
+
+        // ===== MAIN GAME LOOP - SINGLE TURN =====
+        public void PlayTurn()
+        {
+            var currentPlayer = CurrentPlayer;
+
+            // Skip bankrupt players
+            if (currentPlayer.PlayerState == PlayerState.Bankrupt)
+            {
+                NextTurn();
+                return;
+            }
+
+            // Display current game state
+            _view.ClearScreen();
+            _view.DrawBoard(Board, Players);
+
+            var playerMoneyDict = new Dictionary<IPlayer, int>();
+            foreach (var player in Players)
+            {
+                playerMoneyDict[player] = GetPlayerMoney(player);
+            }
+
+            _view.ShowAllPlayersInfo(Players, playerMoneyDict);
+            _view.ShowPlayerInfo(currentPlayer, GetPlayerMoney(currentPlayer));
+            _view.ShowTurnHeader(currentPlayer.Name);
+
+            // Handle jail
+            if (currentPlayer.PlayerState == PlayerState.InJail)
+            {
+                HandleJailOptions();
+                if (currentPlayer.PlayerState == PlayerState.InJail)
+                {
+                    _view.WaitForKeyPress();
+                    NextTurn();
+                    return;
+                }
+            }
+
+            // Roll dice and move
+            bool rolled = false;
+            bool canRollAgain = false;
+            int consecutiveDoubles = 0;
+
+            do
+            {
+                if (!rolled || canRollAgain)
+                {
+                    _view.ShowMenu("Aksi", new List<string>
+                    {
+                        "Lempar Dadu",
+                        "Lihat Properti",
+                        "Kelola Properti",
+                        "Berdagang",
+                        "Akhiri Giliran"
+                    });
+
+                    int choice = _view.GetPlayerChoice(5);
+
+                    switch (choice)
+                    {
+                        case 1:
+                            int dice1, dice2;
+                            (dice1, dice2) = RollDices();
+                            rolled = true;
+
+                            if (dice1 == dice2)
+                            {
+                                consecutiveDoubles++;
+                                if (consecutiveDoubles >= 3)
+                                {
+                                    _view.ShowWarning("Tiga kali ganda berturut-turut! Masuk penjara!");
+                                    SendToJail();
+                                    canRollAgain = false;
+                                }
+                                else
+                                {
+                                    canRollAgain = true;
+                                }
+                            }
+                            else
+                            {
+                                canRollAgain = false;
+                            }
+
+                            if (currentPlayer.PlayerState != PlayerState.InJail)
+                            {
+                                MovePlayer(dice1 + dice2);
+                                OnLand();
+
+                                // Handle property purchase
+                                OfferPropertyPurchase();
+                            }
+                            break;
+
+                        case 2:
+                            ShowPlayerProperties();
+                            break;
+
+                        case 3:
+                            ManagePlayerProperties();
+                            break;
+
+                        case 4:
+                            TradeFlow();
+                            break;
+
+                        case 5:
+                            rolled = true;
+                            canRollAgain = false;
+                            break;
+                    }
+                }
+            } while (canRollAgain && currentPlayer.PlayerState != PlayerState.InJail && !IsGameOver);
+
+            if (!IsGameOver)
+            {
+                // Post-turn actions
+                HandleNegativeBalance();
+                _view.WaitForKeyPress();
+                NextTurn();
+            }
+        }
+
+        private void HandleJailOptions()
+        {
+            var currentPlayer = CurrentPlayer;
+            
+            // Increment jail turns dan cek apakah sudah 3 giliran
+            bool canChoose = HandleJailTurn();
+            if (!canChoose)
+            {
+                // Sudah 3 giliran atau state bukan InJail, sudah dihandle
+                return;
+            }
+            
+            int jailTurns = GetJailTurns(currentPlayer);
+            _view.ShowWarning($"{currentPlayer.Name} di Penjara! (Giliran {jailTurns}/3)");
+
+            var options = new List<string>
+            {
+                "Coba lempar ganda",
+                "Bayar $50 untuk keluar"
+            };
+
+            if (HasGetOutOfJailCard(currentPlayer))
+            {
+                options.Add("Gunakan kartu Bebas Penjara");
+            }
+
+            _view.ShowMenu("Opsi Penjara", options);
+            int choice = _view.GetPlayerChoice(options.Count);
+
+            switch (choice)
+            {
+                case 1:
+                    TryRollDoublesInJail();
+                    break;
+                case 2:
+                    PayJailFee();
+                    break;
+                case 3:
+                    UseGetOutOfJailCard();
+                    break;
+            }
+        }
+
+        private void OfferPropertyPurchase()
+        {
+            var tile = CurrentPlayer.CurrentTile;
+            if (tile == null) return;
+            
+            var asset = TileAssets.ContainsKey(tile) ? TileAssets[tile] : null;
+
+            if (asset == null || asset.Owner != null)
+                return;
+
+            var player = CurrentPlayer;
+
+            _view.ShowPropertyDetails(asset);
+
+            int playerMoney = GetPlayerMoney(player);
+            if (playerMoney >= asset.Value)
+            {
+                if (_view.GetYesNo($"Beli {asset.Name} seharga ${asset.Value}?"))
+                {
+                    PlayerBuyAsset(asset);
+                }
+            }
+            else
+            {
+                _view.ShowWarning($"Uang tidak cukup untuk membeli {asset.Name}.");
+            }
+        }
+
+        private void ShowPlayerProperties()
+        {
+            var player = CurrentPlayer;
+
+            if (player.Assets.Count == 0)
+            {
+                _view.ShowMessage("Anda tidak memiliki properti.");
+                _view.WaitForKeyPress();
+                return;
+            }
+
+            int? selectedIndex = _view.SelectFromPropertyList(
+                player.Assets.ToList(),
+                "Properti Anda",
+                asset =>
+                {
+                    string status = asset.AssetCondition == AssetCondition.Mortgage ? " [MORTGAGE]" : "";
+                    string houses = asset.AmountHouse > 0 ? $" - {asset.AmountHouse} rumah" : "";
+                    return $"{asset.Name} - ${asset.Value}{status}{houses}";
+                }
+            );
+
+            if (selectedIndex.HasValue)
+            {
+                _view.ShowPropertyDetails(player.Assets[selectedIndex.Value]);
+            }
+            _view.WaitForKeyPress();
+        }
+
+        private void ManagePlayerProperties()
+        {
+            var player = CurrentPlayer;
+
+            if (player.Assets.Count == 0)
+            {
+                _view.ShowMessage("Anda tidak memiliki properti.");
+                _view.WaitForKeyPress();
+                return;
+            }
+
+            _view.ShowMenu("Kelola Properti", new List<string>
+            {
+                "Bangun Rumah",
+                "Jual Rumah",
+                "Mortgage Properti",
+                "Unmortgage Properti",
+                "Kembali"
+            });
+
+            int choice = _view.GetPlayerChoice(5);
+
+            switch (choice)
+            {
+                case 1:
+                    BuildHouseFlow();
+                    break;
+                case 2:
+                    SellHouseFlow();
+                    break;
+                case 3:
+                    MortgageFlow();
+                    break;
+                case 4:
+                    UnmortgageFlow();
+                    break;
+                case 5:
+                    return;
+            }
+        }
+
+        // ===== BUILD HOUSE =====
+        private void BuildHouseFlow()
+        {
+            var player = CurrentPlayer;
+            var buildableProperties = player.Assets
+                .Where(a => a.TypeAsset == TypeAsset.RealEstate &&
+                            a.AmountHouse < 5 &&
+                            a.AssetCondition == AssetCondition.Normal)
+                .ToList();
+
+            if (buildableProperties.Count == 0)
+            {
+                _view.ShowMessage("Tidak ada properti untuk dibangun.");
+                _view.WaitForKeyPress();
+                return;
+            }
+
+            int? selectedIndex = _view.SelectFromPropertyList(
+                buildableProperties,
+                "Bangun Rumah",
+                asset =>
+                {
+                    int houseCost = asset.Value / 2;
+                    return $"{asset.Name} - Biaya rumah: ${houseCost} - Saat ini: {asset.AmountHouse} rumah";
+                }
+            );
+
+            if (selectedIndex.HasValue)
+            {
+                PlayerAddHouse(buildableProperties[selectedIndex.Value]);
+            }
+            _view.WaitForKeyPress();
+        }
+
+        private void SellHouseFlow()
+        {
+            var player = CurrentPlayer;
+            var sellableProperties = player.Assets
+                .Where(a => a.AmountHouse > 0)
+                .ToList();
+
+            if (sellableProperties.Count == 0)
+            {
+                _view.ShowMessage("Tidak ada rumah untuk dijual.");
+                _view.WaitForKeyPress();
+                return;
+            }
+
+            int? selectedIndex = _view.SelectFromPropertyList(
+                sellableProperties,
+                "Jual Rumah",
+                asset =>
+                {
+                    int sellPrice = asset.Value / 4;
+                    return $"{asset.Name} - Rumah: {asset.AmountHouse} - Harga jual: ${sellPrice}";
+                }
+            );
+
+            if (selectedIndex.HasValue)
+            {
+                PlayerSellHouse(sellableProperties[selectedIndex.Value]);
+            }
+            _view.WaitForKeyPress();
+        }
+
+        private void MortgageFlow()
+        {
+            var player = CurrentPlayer;
+            var mortgageableProperties = player.Assets
+                .Where(a => a.AssetCondition == AssetCondition.Normal && a.AmountHouse == 0)
+                .ToList();
+
+            if (mortgageableProperties.Count == 0)
+            {
+                _view.ShowMessage("Tidak ada properti untuk di-mortgage.");
+                _view.WaitForKeyPress();
+                return;
+            }
+
+            int? selectedIndex = _view.SelectFromPropertyList(
+                mortgageableProperties,
+                "Mortgage Properti",
+                asset =>
+                {
+                    int mortgageValue = asset.Value / 2;
+                    return $"{asset.Name} - Nilai mortgage: ${mortgageValue}";
+                }
+            );
+
+            if (selectedIndex.HasValue)
+            {
+                PlayerMortgageAsset(player, mortgageableProperties[selectedIndex.Value]);
+            }
+            _view.WaitForKeyPress();
+        }
+
+        private void UnmortgageFlow()
+        {
+            var player = CurrentPlayer;
+            var mortgagedProperties = player.Assets
+                .Where(a => a.AssetCondition == AssetCondition.Mortgage)
+                .ToList();
+
+            if (mortgagedProperties.Count == 0)
+            {
+                _view.ShowMessage("Tidak ada properti yang di-mortgage.");
+                _view.WaitForKeyPress();
+                return;
+            }
+
+            int? selectedIndex = _view.SelectFromPropertyList(
+                mortgagedProperties,
+                "Unmortgage Properti",
+                asset =>
+                {
+                    int unmortgageValue = (asset.Value / 2) + ((asset.Value / 2) / 10);
+                    return $"{asset.Name} - Biaya unmortgage: ${unmortgageValue}";
+                }
+            );
+
+            if (selectedIndex.HasValue)
+            {
+                PlayerUnmortgageAsset(player, mortgagedProperties[selectedIndex.Value]);
+            }
+            _view.WaitForKeyPress();
+        }
+
+        private void TradeFlow()
+        {
+            var currentPlayer = CurrentPlayer;
+            var otherPlayers = Players
+                .Where(p => p != currentPlayer && p.PlayerState != PlayerState.Bankrupt)
+                .ToList();
+
+            if (otherPlayers.Count == 0)
+            {
+                _view.ShowMessage("Tidak ada pemain lain untuk berdagang.");
+                _view.WaitForKeyPress();
+                return;
+            }
+
+            _view.ShowMessage("\n=== Perdagangan ===");
+            
+            var targetPlayer = _view.SelectPlayer(
+                otherPlayers,
+                "Pilih pemain untuk berdagang:",
+                p => $"{p.Name} - ${GetPlayerMoney(p)} - {p.Assets.Count} properti"
+            );
+
+            if (targetPlayer == null)
+            {
+                return;
+            }
+
+            // Get properties to offer
+            List<IAsset> offeredProperties = new List<IAsset>();
+            if (currentPlayer.Assets.Count > 0)
+            {
+                offeredProperties = _view.SelectMultipleFromPropertyList(
+                    currentPlayer.Assets.ToList(),
+                    $"Pilih properti Anda untuk ditawarkan",
+                    a => a.Name
+                );
+            }
+            else
+            {
+                _view.ShowMessage($"{currentPlayer.Name} tidak memiliki properti.");
+            }
+            
+            int offeredMoney = _view.GetMoneyAmount("Masukkan jumlah uang untuk ditawarkan: $");
+
+            // Get properties to request
+            List<IAsset> requestedProperties = new List<IAsset>();
+            if (targetPlayer.Assets.Count > 0)
+            {
+                requestedProperties = _view.SelectMultipleFromPropertyList(
+                    targetPlayer.Assets.ToList(),
+                    $"Pilih properti {targetPlayer.Name} yang Anda inginkan",
+                    a => a.Name
+                );
+            }
+            else
+            {
+                _view.ShowMessage($"{targetPlayer.Name} tidak memiliki properti.");
+            }
+            
+            int requestedMoney = _view.GetMoneyAmount("Masukkan jumlah uang yang diminta: $");
+
+            // Show trade summary
+            _view.ShowTradeOffer(currentPlayer, targetPlayer, offeredProperties, offeredMoney, requestedProperties, requestedMoney);
+
+            if (_view.GetYesNo($"Apakah {targetPlayer.Name} menerima perdagangan ini?"))
+            {
+                PlayerProposeTrade(currentPlayer, targetPlayer, offeredProperties, offeredMoney, requestedProperties, requestedMoney);
+            }
+            else
+            {
+                _view.ShowMessage("Perdagangan ditolak.");
+            }
+
+            _view.WaitForKeyPress();
+        }
+
+        private void HandleNegativeBalance()
+        {
+            var currentPlayer = CurrentPlayer;
+            int playerMoney = GetPlayerMoney(currentPlayer);
+
+            // Check if current player is bankrupt
+            if (playerMoney < 0)
+            {
+                _view.ShowWarning($"{currentPlayer.Name} memiliki saldo negatif!");
+
+                // Allow player to mortgage properties or sell houses
+                while (GetPlayerMoney(currentPlayer) < 0 && currentPlayer.Assets.Count > 0)
+                {
+                    _view.ShowMessage($"Saldo saat ini: ${GetPlayerMoney(currentPlayer)}");
+                    _view.ShowMenu("Anda harus mengumpulkan dana!", new List<string>
+                    {
+                        "Jual Rumah",
+                        "Mortgage Properti",
+                        "Nyatakan Bangkrut"
+                    });
+
+                    int choice = _view.GetPlayerChoice(3);
+                    switch (choice)
+                    {
+                        case 1:
+                            SellHouseFlow();
+                            break;
+                        case 2:
+                            MortgageFlow();
+                            break;
+                        case 3:
+                            CheckIsBankrupt(currentPlayer);
+                            return;
+                    }
+                }
+
+                if (GetPlayerMoney(currentPlayer) < 0)
+                {
+                    CheckIsBankrupt(currentPlayer);
+                }
+            }
         }
 
         public void NextTurn()

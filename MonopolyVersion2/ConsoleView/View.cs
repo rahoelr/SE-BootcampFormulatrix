@@ -3,10 +3,10 @@ using MonopolyApp.Enums;
 
 namespace ConsoleMonopolyApp.Views;
 
-public class ConsoleView
+public class ConsoleView : IView
 {
     private const int TILE_WIDTH = 14;
-    private const int TILE_HEIGHT = 3;
+    private const int TILE_HEIGHT = 4;
 
     public void ClearScreen()
     {
@@ -89,6 +89,13 @@ public class ConsoleView
                 
                 Console.Write(info.PadRight(TILE_WIDTH - 2));
                 Console.Write("|");
+                break;
+
+            case 3:
+                // Bottom border
+                Console.Write("+");
+                Console.Write(new string('-', TILE_WIDTH - 2));
+                Console.Write("+");
                 break;
         }
     }
@@ -417,5 +424,120 @@ public class ConsoleView
     {
         Console.WriteLine("\n[Tekan tombol untuk lanjut...]");
         Console.ReadKey();
+    }
+
+    // ===== NEW METHODS FOR SOLID COMPLIANCE =====
+
+    public void ShowTurnHeader(string playerName)
+    {
+        Console.WriteLine($"\n>>> Giliran {playerName} <<<");
+    }
+
+    public int GetPlayerCount(int min, int max)
+    {
+        ClearScreen();
+        Console.WriteLine("=== SETUP PEMAIN ===\n");
+        Console.Write($"Berapa pemain? ({min}-{max}): ");
+        
+        int numPlayers;
+        while (!int.TryParse(Console.ReadLine(), out numPlayers) || numPlayers < min || numPlayers > max)
+        {
+            Console.Write($"Masukkan angka antara {min} dan {max}: ");
+        }
+        
+        return numPlayers;
+    }
+
+    public string GetPlayerName(int playerIndex)
+    {
+        Console.Write($"Masukkan nama Pemain {playerIndex}: ");
+        string name = Console.ReadLine() ?? $"Pemain {playerIndex}";
+        if (string.IsNullOrWhiteSpace(name))
+            name = $"Pemain {playerIndex}";
+        return name;
+    }
+
+    public int? SelectFromPropertyList(List<IAsset> assets, string title, Func<IAsset, string> formatter)
+    {
+        if (assets.Count == 0)
+        {
+            return null;
+        }
+
+        Console.WriteLine($"\n=== {title} ===");
+        for (int i = 0; i < assets.Count; i++)
+        {
+            Console.WriteLine($"  [{i + 1}] {formatter(assets[i])}");
+        }
+
+        Console.Write("\nPilih properti (0 untuk batal): ");
+        if (int.TryParse(Console.ReadLine(), out int choice) && choice > 0 && choice <= assets.Count)
+        {
+            return choice - 1; // Return index
+        }
+        return null;
+    }
+
+    public List<IAsset> SelectMultipleFromPropertyList(List<IAsset> assets, string prompt, Func<IAsset, string> formatter)
+    {
+        var selected = new List<IAsset>();
+
+        if (assets.Count == 0)
+        {
+            return selected;
+        }
+
+        Console.WriteLine($"\n{prompt} (masukkan nomor dipisah koma, atau 0 untuk tidak ada):");
+        for (int i = 0; i < assets.Count; i++)
+        {
+            Console.WriteLine($"  [{i + 1}] {formatter(assets[i])}");
+        }
+
+        Console.Write("Pilihan: ");
+        string? input = Console.ReadLine();
+
+        if (string.IsNullOrEmpty(input) || input == "0")
+            return selected;
+
+        foreach (var part in input.Split(','))
+        {
+            if (int.TryParse(part.Trim(), out int idx) && idx > 0 && idx <= assets.Count)
+            {
+                selected.Add(assets[idx - 1]);
+            }
+        }
+
+        return selected;
+    }
+
+    public IPlayer? SelectPlayer(List<IPlayer> players, string prompt, Func<IPlayer, string> formatter)
+    {
+        if (players.Count == 0)
+        {
+            return null;
+        }
+
+        Console.WriteLine($"\n{prompt}");
+        for (int i = 0; i < players.Count; i++)
+        {
+            Console.WriteLine($"  [{i + 1}] {formatter(players[i])}");
+        }
+
+        Console.Write("\nPilih pemain (0 untuk batal): ");
+        if (int.TryParse(Console.ReadLine(), out int choice) && choice > 0 && choice <= players.Count)
+        {
+            return players[choice - 1];
+        }
+        return null;
+    }
+
+    public int GetMoneyAmount(string prompt)
+    {
+        Console.Write(prompt);
+        if (int.TryParse(Console.ReadLine(), out int amount) && amount >= 0)
+        {
+            return amount;
+        }
+        return 0;
     }
 }
