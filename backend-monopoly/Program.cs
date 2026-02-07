@@ -10,8 +10,8 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();     // WAJIB dulu
-    app.UseSwaggerUI();   // BARU UI
+    app.UseSwagger();
+    app.UseSwaggerUI();   
 }
 
 app.UseHttpsRedirection();
