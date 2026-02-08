@@ -37,16 +37,25 @@ namespace MonopolyBackend.Controllers
         }
 
         [HttpPost("reset")]
-        public ActionResult Reset()
+        public ActionResult<ResetResponse> Reset()
         {
             _currentGame = null;
-            return Ok(new { message = "Game reset successfully" });
+            var response = new ResetResponse
+            {
+                Success = true,
+                Message = "Game reset successfully"
+            };
+            return Ok(response);
         }
 
         [HttpGet("status")]
-        public ActionResult GetStatus()
+        public ActionResult<GameStatusResponse> GetStatus()
         {
-            return Ok(new { hasActiveGame = _currentGame != null });
+            var response = new GameStatusResponse
+            {
+                HasActiveGame = _currentGame != null
+            };
+            return Ok(response);
         }
 
         [HttpGet("board")]
@@ -117,7 +126,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteRollDice(request.PlayerName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (RollDiceResult) → DTO (RollDiceResponse)
             var dto = new RollDiceResponse
@@ -141,7 +160,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteBuyProperty(request.PlayerName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (PropertyActionResult) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
@@ -161,7 +190,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteBuildHouse(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (PropertyActionResult) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
@@ -181,7 +220,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteSellHouse(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (PropertyActionResult) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
@@ -201,7 +250,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteMortgage(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (PropertyActionResult) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
@@ -221,7 +280,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteUnmortgage(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (PropertyActionResult) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
@@ -241,7 +310,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteTrade(request);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (TradeResult) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
@@ -261,7 +340,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecutePayJailFee(request.PlayerName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (bool) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
@@ -281,7 +370,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteUseJailCard(request.PlayerName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (bool) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
@@ -301,7 +400,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteTryRollDoublesInJail(request.PlayerName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (RollDiceResult) → DTO (RollDiceResponse)
             var dto = new RollDiceResponse
@@ -325,7 +434,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteEndTurn(request.PlayerName);
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             var dto = new ActionResultResponse
             {
@@ -344,7 +463,17 @@ namespace MonopolyBackend.Controllers
 
             var result = _currentGame.ExecuteForceEndGame();
             if (!result.IsSuccess)
-                return BadRequest(new { error = result.Error?.Message });
+            {
+                return result.Error?.Type switch
+                {
+                    Common.ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
+                    Common.ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
+                    Common.ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
+                    Common.ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
+                    Common.ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
+                    _ => BadRequest(new { error = result.Error?.Message })
+                };
+            }
 
             // MAP: Domain (ForceEndGameResult) → DTO (ForceEndGameResponse)
             var dto = new ForceEndGameResponse
