@@ -875,7 +875,7 @@ namespace MonopolyApp.Controllers
         public void OnLand()
         {
             var tile = CurrentPlayer.CurrentTile;
-            if (tile == null) return;
+            if (tile == null) return;f
 
             switch (tile.EffectType)
             {
