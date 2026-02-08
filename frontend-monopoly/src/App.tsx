@@ -5,12 +5,15 @@ import { useGameState } from './hooks/useGameState';
 import { gameApi } from './services/api';
 import { GameSetup } from './components/Game/GameSetup';
 import { GameOver } from './components/Game/GameOver';
+import { ForceGameOverModal } from './components/Game/ForceGameOverModal';
+import { NewGameModal } from './components/Game/NewGameModal';
+// import { PropertyActionModal } from './components/Actions/PropertyActionModal'; // Not needed - now in ActionPanel
 import { Board } from './components/Board/Board';
 import { PlayerCard } from './components/Player/PlayerCard';
 import { ActionPanel } from './components/Actions/ActionPanel';
-import { PropertyActions } from './components/Actions/PropertyActions';
-import { MortgagePanel } from './components/Actions/MortgagePanel';
-import { TradeModal } from './components/Actions/TradeModal';
+// import { PropertyActions } from './components/Actions/PropertyActions'; // Hidden - now in ActionPanel
+// import { MortgagePanel } from './components/Actions/MortgagePanel'; // Hidden for now
+// import { TradeModal } from './components/Actions/TradeModal'; // Hidden for now
 import type { AvailableAction, RollDiceResponse } from './types';
 
 type AppState = 'loading' | 'no-game' | 'playing' | 'game-over';
@@ -19,7 +22,10 @@ function App() {
   const { gameState, board, loading, refreshState, executeAction } = useGameState();
   const [appState, setAppState] = useState<AppState>('loading');
   const [lastRoll, setLastRoll] = useState<RollDiceResponse | null>(null);
-  const [showTradeModal, setShowTradeModal] = useState(false);
+  // const [showTradeModal, setShowTradeModal] = useState(false); // Hidden for now
+  const [showForceGameOverModal, setShowForceGameOverModal] = useState(false);
+  const [showNewGameModal, setShowNewGameModal] = useState(false);
+  // const [showPropertyActionModal, setShowPropertyActionModal] = useState<'build' | 'sell' | null>(null); // Not needed - now in ActionPanel
 
   // Check for active game on mount
   useEffect(() => {
@@ -64,18 +70,38 @@ function App() {
     }
   };
 
-  const handleResetGame = async () => {
-    if (!window.confirm('Are you sure you want to start a new game? Current progress will be lost.')) {
-      return;
-    }
-    
+  const handleResetGame = () => {
+    setShowNewGameModal(true);
+  };
+
+  const handleConfirmNewGame = async () => {
     try {
       await gameApi.resetGame();
       setLastRoll(null);
       setAppState('no-game');
+      setShowNewGameModal(false);
       toast.success('Game reset! Enter new player names.');
     } catch (err) {
       toast.error('Failed to reset game');
+    }
+  };
+
+  const handleTestGameOver = () => {
+    setShowForceGameOverModal(true);
+  };
+
+  const handleForceGameOver = async (winnerName: string) => {
+    try {
+      await executeAction(() => gameApi.forceGameOver(winnerName));
+      setShowForceGameOverModal(false);
+      toast.success(`Game Over! ${winnerName} wins!`);
+    } catch (err) {
+      // If endpoint doesn't exist, show info message
+      toast('Backend does not support force game over. This is a frontend-only demo feature.', { 
+        icon: 'ℹ️', 
+        duration: 5000 
+      });
+      setShowForceGameOverModal(false);
     }
   };
 
@@ -129,18 +155,24 @@ function App() {
           break;
         }
 
-        case 'trade': {
-          setShowTradeModal(true);
+        // Trade feature hidden for now
+        // case 'trade': {
+        //   setShowTradeModal(true);
+        //   break;
+        // }
+
+        case 'build-house':
+        case 'sell-house': {
+          // These will be handled by ActionPanel's build/sell section
           break;
         }
 
-        case 'build-house':
-        case 'sell-house':
-        case 'mortgage-property':
-        case 'unmortgage-property': {
-          // These will be handled by their respective panels
-          break;
-        }
+        // Mortgage features hidden for now
+        // case 'mortgage-property':
+        // case 'unmortgage-property': {
+        //   // These will be handled by their respective panels
+        //   break;
+        // }
 
         default:
           toast.error('Action not yet implemented');
@@ -174,6 +206,8 @@ function App() {
     }
   };
 
+  // Mortgage/Unmortgage handlers - Hidden for now
+  /*
   const handleMortgage = async (propertyName: string) => {
     if (!gameState) return;
     try {
@@ -197,7 +231,10 @@ function App() {
       // Error handled by interceptor
     }
   };
+  */
 
+  // Trade feature hidden for now
+  /*
   const handleTrade = async (tradeData: any) => {
     if (!gameState) return;
     try {
@@ -213,6 +250,7 @@ function App() {
       // Error handled by interceptor
     }
   };
+  */
 
   // Loading state
   if (appState === 'loading') {
@@ -245,43 +283,71 @@ function App() {
 
   // Playing state
   if (appState === 'playing' && gameState && board) {
-    const currentPlayer = gameState.players.find(p => p.name === gameState.currentPlayerName);
+    // const currentPlayer = gameState.players.find(p => p.name === gameState.currentPlayerName); // Not needed anymore
 
     return (
-      <div className="min-h-screen bg-white p-4">
+      <div className="min-h-screen bg-white p-2">
         <Toaster position="top-right" />
 
-        <div className="max-w-7xl mx-auto">
+        <div className="w-full">
           {/* Header */}
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex-1">
+          <div className="relative flex justify-center items-center mb-2 px-2">
+            <div className="text-center">
               <h1 className="text-5xl font-display font-black text-black uppercase tracking-tight">🎲 Monopoly</h1>
               <p className="font-body text-black font-semibold">Turn {gameState.currentTurn + 1}</p>
             </div>
-            <button
-              onClick={handleResetGame}
-              className="bg-black text-white px-4 py-2 font-display font-bold uppercase tracking-wide border-4 border-black shadow-brutal hover:shadow-brutal-sm hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-100"
-              title="Start a new game"
-            >
-              🔄 New Game
-            </button>
+            
+            <div className="absolute right-2 flex gap-2">
+              <button
+                onClick={handleTestGameOver}
+                className="bg-red-500 text-white px-3 py-2 font-display font-bold uppercase tracking-wide text-sm border-4 border-black shadow-brutal hover:shadow-brutal-sm hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-100"
+                title="Test Game Over scenario"
+              >
+                💀 End Game
+              </button>
+              <button
+                onClick={handleResetGame}
+                className="bg-black text-white px-4 py-2 font-display font-bold uppercase tracking-wide border-4 border-black shadow-brutal hover:shadow-brutal-sm hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-100"
+                title="Start a new game"
+              >
+                🔄 New Game
+              </button>
+            </div>
           </div>
 
           {/* Main Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-            {/* Left: Board & Actions */}
-            <div className="space-y-4">
-              <Board board={board} gameState={gameState} lastRoll={lastRoll} />
-              
+          <div className="w-full flex flex-col items-center space-y-2">
+            {/* Board - Centered */}
+            <Board board={board} gameState={gameState} lastRoll={lastRoll} />
+            
+            {/* Actions Row - Same width as board */}
+            <div className="w-full max-w-[85vw] grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-2">
+              {/* Action Panel */}
               <ActionPanel
                 gameState={gameState}
                 onAction={handleAction}
+                onBuildHouse={handleBuildHouse}
+                onSellHouse={handleSellHouse}
                 loading={loading}
               />
 
-              {/* Advanced Actions */}
-              {currentPlayer && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Player Cards - Right Side */}
+              <div className="space-y-2">
+                {gameState.players.map((player, index) => (
+                  <PlayerCard
+                    key={player.name}
+                    player={player}
+                    playerIndex={index}
+                    isCurrentTurn={player.name === gameState.currentPlayerName}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Advanced Actions - Same width as board */}
+            {/* Property Actions panel hidden - now in ActionPanel */}
+            {/* {currentPlayer && (
+              <div className="w-full max-w-[85vw]">
                   {gameState.availableActions.includes('build-house' as AvailableAction) && (
                     <PropertyActions
                       properties={currentPlayer.properties}
@@ -290,41 +356,36 @@ function App() {
                       loading={loading}
                     />
                   )}
-
-                  {gameState.availableActions.includes('mortgage-property' as AvailableAction) && (
-                    <MortgagePanel
-                      properties={currentPlayer.properties}
-                      onMortgage={handleMortgage}
-                      onUnmortgage={handleUnmortgage}
-                      loading={loading}
-                    />
-                  )}
                 </div>
-              )}
-            </div>
-
-            {/* Right: Player Cards */}
-            <div className="space-y-4">
-              {gameState.players.map((player, index) => (
-                <PlayerCard
-                  key={player.name}
-                  player={player}
-                  playerIndex={index}
-                  isCurrentTurn={player.name === gameState.currentPlayerName}
-                />
-              ))}
-            </div>
+            )} */}
           </div>
         </div>
 
-        {/* Trade Modal */}
-        {showTradeModal && currentPlayer && (
+        {/* Trade Modal - Hidden for now */}
+        {/* {showTradeModal && currentPlayer && (
           <TradeModal
             currentPlayer={currentPlayer}
             allPlayers={gameState.players}
             onTrade={handleTrade}
             onClose={() => setShowTradeModal(false)}
             loading={loading}
+          />
+        )} */}
+
+        {/* Force Game Over Modal */}
+        {showForceGameOverModal && gameState && (
+          <ForceGameOverModal
+            gameState={gameState}
+            onConfirm={handleForceGameOver}
+            onClose={() => setShowForceGameOverModal(false)}
+          />
+        )}
+
+        {/* New Game Modal */}
+        {showNewGameModal && (
+          <NewGameModal
+            onConfirm={handleConfirmNewGame}
+            onCancel={() => setShowNewGameModal(false)}
           />
         )}
       </div>

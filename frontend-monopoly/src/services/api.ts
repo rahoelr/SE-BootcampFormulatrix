@@ -89,4 +89,11 @@ export const gameApi = {
   
   endTurn: (playerName: string) =>
     api.post<ActionResultResponse>('/end-turn', { playerName }),
+
+  // ============================================
+  // TEST/DEBUG ACTIONS
+  // ============================================
+  
+  forceGameOver: (winnerName: string) =>
+    api.post<GameStateResponse>('/force-game-over', { winnerName }),
 };

@@ -25,9 +25,9 @@ export function Board({ board, gameState, lastRoll }: BoardProps) {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className="w-full flex items-center justify-center">
       {/* Board Grid */}
-      <div className="grid grid-cols-11 grid-rows-11 gap-1 bg-black p-1 shadow-brutal-lg">
+      <div className="grid grid-cols-11 grid-rows-11 gap-1 bg-black p-1.5 shadow-brutal w-full max-w-[85vw]">
         {board.tiles.map((tile) => {
           const { row, col } = getTileGridPosition(tile.position);
           return (
@@ -49,13 +49,13 @@ export function Board({ board, gameState, lastRoll }: BoardProps) {
 
         {/* Center area */}
         <div
-          className="bg-white flex flex-col items-center justify-center p-4 gap-4"
+          className="bg-white flex flex-col items-center justify-center p-3 gap-2"
           style={{
             gridRow: '2 / 11',
             gridColumn: '2 / 11',
           }}
         >
-          <div className="text-5xl font-display font-black text-black uppercase tracking-tight">MONOPOLY</div>
+          <div className="text-3xl font-display font-black text-black uppercase tracking-tight">MONOPOLY</div>
           
           <TurnIndicator
             currentPlayerName={gameState.currentPlayerName}

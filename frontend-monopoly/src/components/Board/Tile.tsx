@@ -12,10 +12,10 @@ export function Tile({ tile, playersOnTile, owner }: TileProps) {
   const corner = isCornerTile(tile.position);
 
   const getCornerEmoji = () => {
-    if (tile.position === 0) return '▶️';
-    if (tile.position === 10) return '🔒';
-    if (tile.position === 20) return '🅿️';
-    if (tile.position === 30) return '👮';
+    if (tile.position === 0) return '▶️'; // GO/Start
+    if (tile.position === 10) return '👮'; // Jail - Police
+    if (tile.position === 20) return '🅿️'; // Free Parking
+    if (tile.position === 30) return '👮'; // Go to Jail - Police
     return '';
   };
 
@@ -30,7 +30,7 @@ export function Tile({ tile, playersOnTile, owner }: TileProps) {
     <div
       className={`
         relative border-3 border-black bg-white
-        ${corner ? 'p-3 shadow-brutal-tile-lg h-[100px]' : 'p-2 shadow-brutal-tile h-[80px]'}
+        h-[90px] p-2 shadow-brutal-tile
         flex flex-col justify-between
         hover:shadow-brutal-sm transition-all duration-100
         overflow-hidden
@@ -41,25 +41,31 @@ export function Tile({ tile, playersOnTile, owner }: TileProps) {
         {/* Title */}
         <div className="text-center overflow-hidden">
           {corner && (
-            <div className="text-2xl mb-0.5">{getCornerEmoji()}</div>
+            <div className="text-2xl mb-1">{getCornerEmoji()}</div>
           )}
           {tile.effect === 'Chance' || tile.effect === 'CommunityChest' || tile.effect === 'Tax' ? (
-            <div className="text-xl mb-0.5">{getSpecialEmoji()}</div>
+            <div className="text-xl mb-1">{getSpecialEmoji()}</div>
           ) : null}
-          {tile.type === 'Railroad' && <div className="text-xl mb-0.5">🚂</div>}
+          {tile.type === 'Railroad' && <div className="text-xl mb-1">🚂</div>}
           {tile.type === 'Utility' && (
-            <div className="text-xl mb-0.5">
-              {tile.name.includes('Electric') ? '💡' : '💧'}
+            <div className="text-xl mb-1">
+              {tile.name.includes('Electric') || tile.name.includes('PLN') ? '⚡' : '💧'}
             </div>
           )}
-          <div className={`${corner ? 'text-sm' : 'text-xs'} font-display font-bold leading-tight uppercase ${tile.type === 'Railroad' || tile.type === 'Utility' ? 'line-clamp-2' : 'truncate'} w-full px-0.5`}>
+          {tile.type === 'Property' && <div className="text-xl mb-1">🏘️</div>}
+          <div className={`
+            ${corner ? 'text-sm' : tile.type === 'Railroad' || tile.type === 'Utility' ? 'text-sm' : 'text-xs'} 
+            font-display font-bold leading-tight uppercase 
+            ${tile.type === 'Railroad' || tile.type === 'Utility' ? 'line-clamp-2' : 'truncate'} 
+            w-full px-0.5
+          `}>
             {tile.name}
           </div>
         </div>
 
         {/* Price */}
         {tile.price !== null && (
-          <div className="text-[10px] text-center text-black font-mono mt-0.5 font-semibold">
+          <div className="text-[10px] text-center text-black font-mono mt-1 font-semibold">
             ${tile.price}
           </div>
         )}
