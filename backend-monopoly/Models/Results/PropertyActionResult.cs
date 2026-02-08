@@ -1,11 +1,8 @@
 namespace MonopolyBackend.Models.Results
 {
-    /// <summary>
-    /// Domain result for property-related actions (buy, build, sell, mortgage)
-    /// </summary>
-    public class PropertyActionResult
+    public record PropertyActionResult
     {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
+        public bool Success { get; init; }
+        public string Message { get; init; } = string.Empty;
     }
 }

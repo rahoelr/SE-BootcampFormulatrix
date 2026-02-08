@@ -8,7 +8,7 @@ namespace MonopolyBackend.Services
     using MonopolyBackend.Structs;
     using System.Collections.Generic;
     using MonopolyBackend.DTOs.Requests; // Only for input parameters (TradeRequest)
-    using MonopolyBackend.DTOs.Responses; // Only for DTO Mappers (GetGameState, etc.)
+    using PlayerStateEnum = MonopolyBackend.Enums.PlayerState;
 
     public class GameService
     {
@@ -77,19 +77,13 @@ namespace MonopolyBackend.Services
         public void StartGame()
         {
         }
-
-        // ===== MAIN GAME LOOP - Removed (Console-only) =====
-        // PlayTurn() method deleted - incompatible with REST API
-        // Use atomic action methods instead: ExecuteRollDice, ExecuteBuyProperty, etc.
-
-        // TradeFlow() deleted - use ExecuteTrade() instead
         
         public void NextTurn()
         {
             do
             {
                 CurrentTurn++;
-            } while (CurrentPlayer.PlayerState == PlayerState.Bankrupt && GetActivePlayers().Count > 1);
+            } while (CurrentPlayer.PlayerState == PlayerStateEnum.Bankrupt && GetActivePlayers().Count > 1);
 
             var activePlayers = GetActivePlayers();
             if (activePlayers.Count == 1)
@@ -111,7 +105,7 @@ namespace MonopolyBackend.Services
 
         public List<IPlayer> GetActivePlayers()
         {
-            return Players.Where(p => p.PlayerState != PlayerState.Bankrupt).ToList();
+            return Players.Where(p => p.PlayerState != PlayerStateEnum.Bankrupt).ToList();
         }
 
         public void GetAndApplyDeck(IDecks deck)
@@ -129,7 +123,7 @@ namespace MonopolyBackend.Services
         {
             CurrentPlayer.PathIndex = JAIL_POSITION;
             CurrentPlayer.CurrentTile = Board.Path[JAIL_POSITION];
-            CurrentPlayer.PlayerState = PlayerState.InJail;
+            CurrentPlayer.PlayerState = PlayerStateEnum.InJail;
             _playerJailTurns[CurrentPlayer] = 0;
         }
 
@@ -192,7 +186,7 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<bool> HandleJailTurn()
         {
-            if (CurrentPlayer.PlayerState != PlayerState.InJail)
+            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Player is not in jail.")
                 );
@@ -215,7 +209,7 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<bool> PayJailFee()
         {
-            if (CurrentPlayer.PlayerState != PlayerState.InJail)
+            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Player is not in jail.")
                 );
@@ -226,14 +220,14 @@ namespace MonopolyBackend.Services
                     new ServiceError(ErrorType.Validation, "Insufficient funds to pay jail fee.")
                 );
 
-            CurrentPlayer.PlayerState = PlayerState.Normal;
+            CurrentPlayer.PlayerState = PlayerStateEnum.Normal;
             _playerJailTurns[CurrentPlayer] = 0;
             return ServiceResult<bool>.Success(true);
         }
 
         public ServiceResult<bool> UseGetOutOfJailCard()
         {
-            if (CurrentPlayer.PlayerState != PlayerState.InJail)
+            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Player is not in jail.")
                 );
@@ -246,7 +240,7 @@ namespace MonopolyBackend.Services
             }
 
             _playerGetOutOfJailCards[CurrentPlayer]--;
-            CurrentPlayer.PlayerState = PlayerState.Normal;
+            CurrentPlayer.PlayerState = PlayerStateEnum.Normal;
             _playerJailTurns[CurrentPlayer] = 0;
             return ServiceResult<bool>.Success(true);
         }
@@ -281,7 +275,7 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<bool> TryRollDoublesInJail()
         {
-            if (CurrentPlayer.PlayerState != PlayerState.InJail)
+            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Player is not in jail.")
                 );
@@ -297,7 +291,7 @@ namespace MonopolyBackend.Services
             if (diceData.IsDouble)
             {
                 // Berhasil roll ganda - keluar dari penjara
-                CurrentPlayer.PlayerState = PlayerState.Normal;
+                CurrentPlayer.PlayerState = PlayerStateEnum.Normal;
                 _playerJailTurns[CurrentPlayer] = 0;
 
                 // Pindahkan pemain
@@ -746,7 +740,7 @@ namespace MonopolyBackend.Services
 
             if (playerMoney.Data + totalValue.Data < 0)
             {
-                player.PlayerState = PlayerState.Bankrupt;
+                player.PlayerState = PlayerStateEnum.Bankrupt;
 
                 // Return assets to bank
                 foreach (var asset in player.Assets.ToList())
@@ -874,7 +868,7 @@ namespace MonopolyBackend.Services
             if (!validationResult.IsSuccess)
                 return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
 
-            if (CurrentPlayer.PlayerState == PlayerState.InJail)
+            if (CurrentPlayer.PlayerState == PlayerStateEnum.InJail)
                 return ServiceResult<RollDiceResult>.Fail(
                     new ServiceError(ErrorType.Validation, "Player is in jail. Use jail-specific actions.")
                 );
@@ -1119,7 +1113,7 @@ namespace MonopolyBackend.Services
             if (!validationResult.IsSuccess)
                 return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
 
-            if (CurrentPlayer.PlayerState != PlayerState.InJail)
+            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
                 return ServiceResult<RollDiceResult>.Fail(
                     new ServiceError(ErrorType.Validation, "Player is not in jail.")
                 );
@@ -1159,33 +1153,32 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        public GameStateResponse GetGameState()
+        public GameData GetGameState()
         {
-            var playerResponses = Players.Select(MapPlayerToResponse).ToList();
-            var propertyResponses = TileAssets.Values
+            var playerData = Players.Select(MapPlayerToData).ToList();
+            var propertyData = TileAssets.Values
                 .Where(a => a != null)
-                .Select(a => MapPropertyToResponse(a!))
+                .Select(a => MapPropertyToData(a!))
                 .ToList();
 
-            return new GameStateResponse
+            return new GameData
             {
-                IsGameStarted = true,
                 IsGameOver = IsGameOver,
                 WinnerName = Winner?.Name,
                 CurrentTurn = CurrentTurn,
                 CurrentPlayerName = CurrentPlayer.Name,
-                Players = playerResponses,
-                AllProperties = propertyResponses,
+                Players = playerData,
+                AllProperties = propertyData,
                 AvailableActions = GetAvailableActionsForCurrentPlayer()
             };
         }
 
-        private PlayerResponse MapPlayerToResponse(IPlayer player)
+        private PlayerData MapPlayerToData(IPlayer player)
         {
             var currentTile = player.CurrentTile ?? Board.Path[0];
-            var properties = player.Assets.Select(MapPropertyToResponse).ToList();
+            var properties = player.Assets.Select(MapPropertyToData).ToList();
 
-            return new PlayerResponse
+            return new PlayerData
             {
                 Name = player.Name,
                 Money = GetPlayerMoney(player).Data,
@@ -1199,7 +1192,7 @@ namespace MonopolyBackend.Services
             };
         }
 
-        private PropertyResponse MapPropertyToResponse(IAsset asset)
+        private PropertyData MapPropertyToData(IAsset asset)
         {
             int rent = 0;
             if (asset.Owner != null)
@@ -1211,15 +1204,13 @@ namespace MonopolyBackend.Services
                 }
             }
 
-            return new PropertyResponse
+            return new PropertyData
             {
                 Name = asset.Name,
                 Type = asset.TypeAsset.ToString(),
-                Value = asset.Value,
-                OwnerName = asset.Owner?.Name,
-                Houses = asset.AmountHouse,
+                Price = asset.Value,
                 IsMortgaged = asset.AssetCondition == AssetCondition.Mortgage,
-                Rent = rent
+                Houses = asset.AmountHouse
             };
         }
 
@@ -1233,7 +1224,7 @@ namespace MonopolyBackend.Services
             var player = CurrentPlayer;
 
             // Roll dice action (always available unless in jail with other options)
-            if (player.PlayerState == PlayerState.InJail)
+            if (player.PlayerState == PlayerStateEnum.InJail)
             {
                 actions.Add("pay-jail-fee");
                 actions.Add("try-roll-doubles");

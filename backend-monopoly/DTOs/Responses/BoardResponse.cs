@@ -1,9 +1,9 @@
 namespace MonopolyBackend.DTOs.Responses
 {
-    public class BoardResponse
+    public record BoardResponse
     {
-        public List<TileResponse> Tiles { get; set; } = new();
+        public List<TileResponse> Tiles { get; init; } = new();
 
-        public int TotalTiles { get; set; }
+        public int TotalTiles { get; init; }
     }
 }

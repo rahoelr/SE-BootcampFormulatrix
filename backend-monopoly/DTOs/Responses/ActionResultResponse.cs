@@ -1,9 +1,9 @@
 namespace MonopolyBackend.DTOs.Responses
 {
-    public class ActionResultResponse
+    public record ActionResultResponse
     {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public object? Data { get; set; }
+        public bool Success { get; init; }
+        public string Message { get; init; } = string.Empty;
+        public object? Data { get; init; }
     }
 }

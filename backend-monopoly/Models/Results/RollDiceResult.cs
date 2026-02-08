@@ -1,11 +1,8 @@
 namespace MonopolyBackend.Models.Results
 {
-    /// <summary>
-    /// Wrapper for roll dice action result (multiple data types)
-    /// </summary>
-    public class RollDiceResult
+    public record RollDiceResult
     {
-        public DiceRoll Roll { get; set; } = new();
-        public MoveResult Move { get; set; } = new();
+        public DiceRoll Roll { get; init; } = new();
+        public MoveResult Move { get; init; } = new();
     }
 }

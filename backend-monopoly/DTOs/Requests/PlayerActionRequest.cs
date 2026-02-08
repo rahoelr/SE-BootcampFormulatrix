@@ -1,7 +1,7 @@
 namespace MonopolyBackend.DTOs.Requests
 {
-    public class PlayerActionRequest
+    public record PlayerActionRequest
     {
-        public string PlayerName { get; set; } = string.Empty;
+        public string PlayerName { get; init; } = string.Empty;
     }
 }

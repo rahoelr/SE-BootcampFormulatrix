@@ -63,7 +63,50 @@ namespace MonopolyBackend.Controllers
                 return NotFound(new { error = "No active game. Create one first." });
 
             var gameState = _currentGame.GetGameState();
-            return Ok(gameState);
+
+            // MAP: Domain (GameData) → DTO (GameStateResponse)
+            var dto = new GameStateResponse
+            {
+                IsGameStarted = true,
+                IsGameOver = gameState.IsGameOver,
+                WinnerName = gameState.WinnerName,
+                CurrentTurn = gameState.CurrentTurn,
+                CurrentPlayerName = gameState.CurrentPlayerName,
+                Players = gameState.Players.Select(p => new PlayerResponse
+                {
+                    Name = p.Name,
+                    Position = p.Position,
+                    CurrentTileName = p.CurrentTileName,
+                    CurrentTileType = p.CurrentTileType,
+                    Money = p.Money,
+                    State = p.State,
+                    Properties = p.Properties.Select(prop => new PropertyResponse
+                    {
+                        Name = prop.Name,
+                        Value = prop.Price,
+                        Type = prop.Type,
+                        IsMortgaged = prop.IsMortgaged,
+                        Houses = prop.Houses,
+                        OwnerName = p.Name,
+                        Rent = 0
+                    }).ToList(),
+                    JailTurns = p.JailTurns,
+                    HasGetOutOfJailCard = p.HasGetOutOfJailCard
+                }).ToList(),
+                AllProperties = gameState.AllProperties.Select(prop => new PropertyResponse
+                {
+                    Name = prop.Name,
+                    Value = prop.Price,
+                    Type = prop.Type,
+                    IsMortgaged = prop.IsMortgaged,
+                    Houses = prop.Houses,
+                    OwnerName = null,
+                    Rent = 0
+                }).ToList(),
+                AvailableActions = gameState.AvailableActions
+            };
+
+            return Ok(dto);
         }
 
         [HttpPost("roll-dice")]

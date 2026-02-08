@@ -1,14 +1,13 @@
-namespace MonopolyBackend.DTOs.Responses
+namespace MonopolyBackend.Models.Results
 {
-    public record GameStateResponse
+    public record GameData
     {
-        public bool IsGameStarted { get; init; }
         public bool IsGameOver { get; init; }
         public string? WinnerName { get; init; }
         public int CurrentTurn { get; init; }
         public string CurrentPlayerName { get; init; } = string.Empty;
+        public List<PlayerData> Players { get; init; } = new();
+        public List<PropertyData> AllProperties { get; init; } = new();
         public List<string> AvailableActions { get; init; } = new();
-        public List<PlayerResponse> Players { get; init; } = new();
-        public List<PropertyResponse> AllProperties { get; init; } = new();
     }
 }

@@ -1,17 +1,17 @@
 namespace MonopolyBackend.DTOs.Responses
 {
-    public class TileResponse
+    public record TileResponse
     {
-        public int Position { get; set; }
+        public int Position { get; init; }
 
-        public string Name { get; set; } = string.Empty;
+        public string Name { get; init; } = string.Empty;
 
-        public string Type { get; set; } = string.Empty;
+        public string Type { get; init; } = string.Empty;
 
-        public string Effect { get; set; } = string.Empty;
+        public string Effect { get; init; } = string.Empty;
 
-        public int? Price { get; set; }
+        public int? Price { get; init; }
 
-        public string? AssetType { get; set; }
+        public string? AssetType { get; init; }
     }
 }
