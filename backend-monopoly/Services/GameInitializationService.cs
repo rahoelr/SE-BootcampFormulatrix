@@ -2,6 +2,7 @@ using MonopolyBackend.Models;
 using MonopolyBackend.Interfaces;
 using MonopolyBackend.Enums;
 using MonopolyBackend.Structs;
+using MonopolyBackend.DTOs.Responses;
 
 namespace MonopolyBackend.Services
 {
@@ -27,6 +28,28 @@ namespace MonopolyBackend.Services
 
             gameService.StartGame();
             return gameService;
+        }
+
+        public static BoardResponse GetBoardConfiguration()
+        {
+            var board = CreateSimpleBoard();
+            var tileAssets = CreateTileAssetMapping(board);
+
+            var tiles = board.Path.Select(tile => new TileResponse
+            {
+                Position = tile.PathIndex ?? 0,
+                Name = tile.Name,
+                Type = tile.TilesType.ToString(),
+                Effect = tile.EffectType.ToString(),
+                Price = tileAssets.TryGetValue(tile, out var asset) ? asset?.Value : null,
+                AssetType = tileAssets.TryGetValue(tile, out var assetVal) ? assetVal?.TypeAsset.ToString() : null
+            }).ToList();
+
+            return new BoardResponse
+            {
+                Tiles = tiles,
+                TotalTiles = tiles.Count
+            };
         }
 
         private static List<IPlayer> CreatePlayers(List<string> playerNames)

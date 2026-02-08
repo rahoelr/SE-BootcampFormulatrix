@@ -27,11 +27,6 @@ namespace MonopolyBackend.Services
         private Dictionary<IPlayer, int> _playerJailTurns { get; set; }
         private Dictionary<IPlayer, int> _playerGetOutOfJailCards { get; set; }
 
-        #region API Action Methods
-
-        /// <summary>
-        /// Validates if it's the player's turn
-        /// </summary>
         private ServiceResult<IPlayer> ValidatePlayerTurn(string playerName)
         {
             var player = Players.FirstOrDefault(p => p.Name == playerName);
@@ -873,9 +868,6 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        /// <summary>
-        /// Execute roll dice action
-        /// </summary>
         public ServiceResult<RollDiceResult> ExecuteRollDice(string playerName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -917,9 +909,6 @@ namespace MonopolyBackend.Services
             return ServiceResult<RollDiceResult>.Success(result);
         }
 
-        /// <summary>
-        /// Execute buy property action (based on current position)
-        /// </summary>
         public ServiceResult<PropertyActionResult> ExecuteBuyProperty(string playerName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -951,9 +940,6 @@ namespace MonopolyBackend.Services
                 : ServiceResult<PropertyActionResult>.Fail(buyResult.Error!);
         }
 
-        /// <summary>
-        /// Execute build house action
-        /// </summary>
         public ServiceResult<PropertyActionResult> ExecuteBuildHouse(string playerName, string propertyName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -979,9 +965,6 @@ namespace MonopolyBackend.Services
                 : ServiceResult<PropertyActionResult>.Fail(buildResult.Error!);
         }
 
-        /// <summary>
-        /// Execute sell house action
-        /// </summary>
         public ServiceResult<PropertyActionResult> ExecuteSellHouse(string playerName, string propertyName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -1007,9 +990,6 @@ namespace MonopolyBackend.Services
                 : ServiceResult<PropertyActionResult>.Fail(sellResult.Error!);
         }
 
-        /// <summary>
-        /// Execute mortgage property action
-        /// </summary>
         public ServiceResult<PropertyActionResult> ExecuteMortgage(string playerName, string propertyName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -1035,9 +1015,6 @@ namespace MonopolyBackend.Services
                 : ServiceResult<PropertyActionResult>.Fail(mortgageResult.Error!);
         }
 
-        /// <summary>
-        /// Execute unmortgage property action
-        /// </summary>
         public ServiceResult<PropertyActionResult> ExecuteUnmortgage(string playerName, string propertyName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -1063,9 +1040,6 @@ namespace MonopolyBackend.Services
                 : ServiceResult<PropertyActionResult>.Fail(unmortgageResult.Error!);
         }
 
-        /// <summary>
-        /// Execute trade between players
-        /// </summary>
         public ServiceResult<TradeResult> ExecuteTrade(TradeRequest request)
         {
             var player1 = Players.FirstOrDefault(p => p.Name == request.PlayerName);
@@ -1119,9 +1093,6 @@ namespace MonopolyBackend.Services
                 : ServiceResult<TradeResult>.Fail(tradeResult.Error!);
         }
 
-        /// <summary>
-        /// Execute pay jail fee action
-        /// </summary>
         public ServiceResult<bool> ExecutePayJailFee(string playerName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -1132,9 +1103,6 @@ namespace MonopolyBackend.Services
             return payResult;
         }
 
-        /// <summary>
-        /// Execute use get out of jail card action
-        /// </summary>
         public ServiceResult<bool> ExecuteUseJailCard(string playerName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -1145,9 +1113,6 @@ namespace MonopolyBackend.Services
             return useCardResult;
         }
 
-        /// <summary>
-        /// Execute try to roll doubles while in jail
-        /// </summary>
         public ServiceResult<RollDiceResult> ExecuteTryRollDoublesInJail(string playerName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -1184,9 +1149,6 @@ namespace MonopolyBackend.Services
             return ServiceResult<RollDiceResult>.Success(result);
         }
 
-        /// <summary>
-        /// Execute end turn action
-        /// </summary>
         public ServiceResult<bool> ExecuteEndTurn(string playerName)
         {
             var validationResult = ValidatePlayerTurn(playerName);
@@ -1197,13 +1159,6 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        #endregion
-
-        #region DTO Mappers
-
-        /// <summary>
-        /// Maps current game state to GameStateResponse DTO
-        /// </summary>
         public GameStateResponse GetGameState()
         {
             var playerResponses = Players.Select(MapPlayerToResponse).ToList();
@@ -1225,9 +1180,6 @@ namespace MonopolyBackend.Services
             };
         }
 
-        /// <summary>
-        /// Maps player to PlayerResponse DTO
-        /// </summary>
         private PlayerResponse MapPlayerToResponse(IPlayer player)
         {
             var currentTile = player.CurrentTile ?? Board.Path[0];
@@ -1247,9 +1199,6 @@ namespace MonopolyBackend.Services
             };
         }
 
-        /// <summary>
-        /// Maps asset to PropertyResponse DTO
-        /// </summary>
         private PropertyResponse MapPropertyToResponse(IAsset asset)
         {
             int rent = 0;
@@ -1274,9 +1223,6 @@ namespace MonopolyBackend.Services
             };
         }
 
-        /// <summary>
-        /// Gets available actions for current player
-        /// </summary>
         private List<string> GetAvailableActionsForCurrentPlayer()
         {
             var actions = new List<string>();
@@ -1347,8 +1293,6 @@ namespace MonopolyBackend.Services
 
             return actions;
         }
-
-        #endregion
 
     }
 }

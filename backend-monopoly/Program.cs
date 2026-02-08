@@ -18,9 +18,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Register GameManager as Singleton (manages single game instance)
-builder.Services.AddSingleton<GameManager>();
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline

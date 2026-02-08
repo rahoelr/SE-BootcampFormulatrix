@@ -9,94 +9,70 @@ namespace MonopolyBackend.Controllers
     [Route("api/[controller]")]
     public class GameController : ControllerBase
     {
-        private readonly GameManager _gameManager;
+        // Static field to hold single game instance (no DI, no lock)
+        private static GameService? _currentGame;
 
-        public GameController(GameManager gameManager)
-        {
-            _gameManager = gameManager;
-        }
-
-        /// <summary>
-        /// Create new game with 2-4 players
-        /// </summary>
         [HttpPost("create")]
         public ActionResult<GameStateResponse> CreateGame([FromBody] CreateGameRequest request)
         {
-            try
+            if (_currentGame != null)
             {
-                if (request.PlayerNames == null || request.PlayerNames.Count < 2 || request.PlayerNames.Count > 4)
-                {
-                    return BadRequest(new { error = "Must have 2-4 players" });
-                }
+                return Conflict(new { error = "Game already exists. Reset first." });
+            }
 
-                var game = _gameManager.CreateGame(request.PlayerNames);
-                var gameState = game.GetGameState();
-                
-                return Ok(gameState);
-            }
-            catch (InvalidOperationException ex)
+            if (request.PlayerNames == null || request.PlayerNames.Count < 2 || request.PlayerNames.Count > 4)
             {
-                return Conflict(new { error = ex.Message });
+                return BadRequest(new { error = "Must have 2-4 players" });
             }
-            catch (ArgumentException ex)
+
+            if (request.PlayerNames.Distinct().Count() != request.PlayerNames.Count)
             {
-                return BadRequest(new { error = ex.Message });
+                return BadRequest(new { error = "Player names must be unique" });
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = ex.Message });
-            }
+
+            _currentGame = GameInitializationService.CreateGame(request.PlayerNames);
+            var gameState = _currentGame.GetGameState();
+            
+            return Ok(gameState);
         }
 
-        /// <summary>
-        /// Reset current game
-        /// </summary>
         [HttpPost("reset")]
         public ActionResult Reset()
         {
-            _gameManager.ResetGame();
+            _currentGame = null;
             return Ok(new { message = "Game reset successfully" });
         }
 
-        /// <summary>
-        /// Check if game exists
-        /// </summary>
         [HttpGet("status")]
         public ActionResult GetStatus()
         {
-            var hasGame = _gameManager.HasActiveGame();
-            return Ok(new { hasActiveGame = hasGame });
+            return Ok(new { hasActiveGame = _currentGame != null });
         }
 
-        /// <summary>
-        /// Get current game state (polling endpoint)
-        /// </summary>
+        [HttpGet("board")]
+        public ActionResult<BoardResponse> GetBoardConfiguration()
+        {
+            var boardConfig = GameInitializationService.GetBoardConfiguration();
+            return Ok(boardConfig);
+        }
+
         [HttpGet("state")]
         public ActionResult<GameStateResponse> GetGameState()
         {
-            try
-            {
-                var game = _gameManager.GetGame();
-                if (game == null)
-                    return NotFound(new { error = "No active game. Create one first." });
+            if (_currentGame == null)
+                return NotFound(new { error = "No active game. Create one first." });
 
-                var gameState = game.GetGameState();
-                return Ok(gameState);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = ex.Message });
-            }
+            var gameState = _currentGame.GetGameState();
+            return Ok(gameState);
         }
 
         [HttpPost("roll-dice")]
         public ActionResult<RollDiceResponse> RollDice([FromBody] PlayerActionRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteRollDice(request.PlayerName);
+            var result = _currentGame.ExecuteRollDice(request.PlayerName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -117,11 +93,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("buy-property")]
         public ActionResult<ActionResultResponse> BuyProperty([FromBody] PlayerActionRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteBuyProperty(request.PlayerName);
+            var result = _currentGame.ExecuteBuyProperty(request.PlayerName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -138,11 +113,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("build-house")]
         public ActionResult<ActionResultResponse> BuildHouse([FromBody] BuildHouseRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteBuildHouse(request.PlayerName, request.PropertyName);
+            var result = _currentGame.ExecuteBuildHouse(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -159,11 +133,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("sell-house")]
         public ActionResult<ActionResultResponse> SellHouse([FromBody] BuildHouseRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteSellHouse(request.PlayerName, request.PropertyName);
+            var result = _currentGame.ExecuteSellHouse(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -180,11 +153,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("mortgage")]
         public ActionResult<ActionResultResponse> Mortgage([FromBody] MortgagePropertyRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteMortgage(request.PlayerName, request.PropertyName);
+            var result = _currentGame.ExecuteMortgage(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -201,11 +173,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("unmortgage")]
         public ActionResult<ActionResultResponse> Unmortgage([FromBody] MortgagePropertyRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteUnmortgage(request.PlayerName, request.PropertyName);
+            var result = _currentGame.ExecuteUnmortgage(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -222,11 +193,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("trade")]
         public ActionResult<ActionResultResponse> Trade([FromBody] TradeRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteTrade(request);
+            var result = _currentGame.ExecuteTrade(request);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -243,11 +213,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("pay-jail-fee")]
         public ActionResult<ActionResultResponse> PayJailFee([FromBody] PlayerActionRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecutePayJailFee(request.PlayerName);
+            var result = _currentGame.ExecutePayJailFee(request.PlayerName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -264,11 +233,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("use-jail-card")]
         public ActionResult<ActionResultResponse> UseJailCard([FromBody] PlayerActionRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteUseJailCard(request.PlayerName);
+            var result = _currentGame.ExecuteUseJailCard(request.PlayerName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -285,11 +253,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("try-roll-doubles")]
         public ActionResult<RollDiceResponse> TryRollDoublesInJail([FromBody] PlayerActionRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteTryRollDoublesInJail(request.PlayerName);
+            var result = _currentGame.ExecuteTryRollDoublesInJail(request.PlayerName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -310,11 +277,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("end-turn")]
         public ActionResult<ActionResultResponse> EndTurn([FromBody] PlayerActionRequest request)
         {
-            var game = _gameManager.GetGame();
-            if (game == null)
+            if (_currentGame == null)
                 return NotFound(new { error = "No active game" });
 
-            var result = game.ExecuteEndTurn(request.PlayerName);
+            var result = _currentGame.ExecuteEndTurn(request.PlayerName);
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
@@ -322,7 +288,7 @@ namespace MonopolyBackend.Controllers
             var dto = new ActionResultResponse
             {
                 Success = true,
-                Message = $"Turn ended. Now it's {game.CurrentPlayer.Name}'s turn."
+                Message = $"Turn ended. Now it's {_currentGame.CurrentPlayer.Name}'s turn."
             };
 
             return Ok(dto);
