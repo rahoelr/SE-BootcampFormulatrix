@@ -66,45 +66,45 @@ namespace MonopolyBackend.Services
             var tiles = new List<ITile>
             {
                 CreateSimpleTile(0, "GO", TilesType.Corner, EffectType.Go),
-                CreateSimpleTile(1, "Mediterranean Avenue", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(1, "Medan", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(2, "Community Chest", TilesType.Special, EffectType.CommunityChest),
-                CreateSimpleTile(3, "Baltic Avenue", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(3, "Palembang", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(4, "Income Tax", TilesType.Special, EffectType.Tax),
-                CreateSimpleTile(5, "Reading Railroad", TilesType.Railroad, EffectType.Nothing),
-                CreateSimpleTile(6, "Oriental Avenue", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(5, "Stasiun Gambir", TilesType.Railroad, EffectType.Nothing),
+                CreateSimpleTile(6, "Semarang", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(7, "Chance", TilesType.Special, EffectType.Chance),
-                CreateSimpleTile(8, "Vermont Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(9, "Connecticut Avenue", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(8, "Surabaya", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(9, "Makassar", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(10, "Jail / Just Visiting", TilesType.Corner, EffectType.Nothing),
-                CreateSimpleTile(11, "St. Charles Place", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(12, "Electric Company", TilesType.Utility, EffectType.Nothing),
-                CreateSimpleTile(13, "States Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(14, "Virginia Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(15, "Pennsylvania Railroad", TilesType.Railroad, EffectType.Nothing),
-                CreateSimpleTile(16, "St. James Place", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(11, "Bandung", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(12, "PLN", TilesType.Utility, EffectType.Nothing),
+                CreateSimpleTile(13, "Yogyakarta", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(14, "Solo", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(15, "Stasiun Pasar Senen", TilesType.Railroad, EffectType.Nothing),
+                CreateSimpleTile(16, "Denpasar", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(17, "Community Chest", TilesType.Special, EffectType.CommunityChest),
-                CreateSimpleTile(18, "Tennessee Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(19, "New York Avenue", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(18, "Malang", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(19, "Balikpapan", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(20, "Free Parking", TilesType.Corner, EffectType.FreeParking),
-                CreateSimpleTile(21, "Kentucky Avenue", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(21, "Manado", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(22, "Chance", TilesType.Special, EffectType.Chance),
-                CreateSimpleTile(23, "Indiana Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(24, "Illinois Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(25, "B&O Railroad", TilesType.Railroad, EffectType.Nothing),
-                CreateSimpleTile(26, "Atlantic Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(27, "Ventnor Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(28, "Water Works", TilesType.Utility, EffectType.Nothing),
-                CreateSimpleTile(29, "Marvin Gardens", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(23, "Pontianak", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(24, "Batam", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(25, "Stasiun Manggarai", TilesType.Railroad, EffectType.Nothing),
+                CreateSimpleTile(26, "Depok", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(27, "Tangerang", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(28, "PDAM", TilesType.Utility, EffectType.Nothing),
+                CreateSimpleTile(29, "Bekasi", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(30, "Go To Jail", TilesType.Corner, EffectType.GoToJail),
-                CreateSimpleTile(31, "Pacific Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(32, "North Carolina Avenue", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(31, "Bogor", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(32, "Jakarta Selatan", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(33, "Community Chest", TilesType.Special, EffectType.CommunityChest),
-                CreateSimpleTile(34, "Pennsylvania Avenue", TilesType.Property, EffectType.Nothing),
-                CreateSimpleTile(35, "Short Line Railroad", TilesType.Railroad, EffectType.Nothing),
+                CreateSimpleTile(34, "Jakarta Pusat", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(35, "Stasiun Tanah Abang", TilesType.Railroad, EffectType.Nothing),
                 CreateSimpleTile(36, "Chance", TilesType.Special, EffectType.Chance),
-                CreateSimpleTile(37, "Park Place", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(37, "Jakarta Utara", TilesType.Property, EffectType.Nothing),
                 CreateSimpleTile(38, "Luxury Tax", TilesType.Special, EffectType.Tax),
-                CreateSimpleTile(39, "Boardwalk", TilesType.Property, EffectType.Nothing),
+                CreateSimpleTile(39, "Jakarta Barat", TilesType.Property, EffectType.Nothing),
             };
 
             board.Path.AddRange(tiles);
@@ -128,52 +128,52 @@ namespace MonopolyBackend.Services
             var mapping = new Dictionary<ITile, IAsset?>();
 
             // Brown
-            mapping[board.Path[1]] = new Asset("Mediterranean Avenue", TypeAsset.RealEstate, 60);
-            mapping[board.Path[3]] = new Asset("Baltic Avenue", TypeAsset.RealEstate, 60);
+            mapping[board.Path[1]] = new Asset("Medan", TypeAsset.RealEstate, 60);
+            mapping[board.Path[3]] = new Asset("Palembang", TypeAsset.RealEstate, 60);
 
             // Light Blue
-            mapping[board.Path[6]] = new Asset("Oriental Avenue", TypeAsset.RealEstate, 100);
-            mapping[board.Path[8]] = new Asset("Vermont Avenue", TypeAsset.RealEstate, 100);
-            mapping[board.Path[9]] = new Asset("Connecticut Avenue", TypeAsset.RealEstate, 120);
+            mapping[board.Path[6]] = new Asset("Semarang", TypeAsset.RealEstate, 100);
+            mapping[board.Path[8]] = new Asset("Surabaya", TypeAsset.RealEstate, 100);
+            mapping[board.Path[9]] = new Asset("Makassar", TypeAsset.RealEstate, 120);
 
             // Pink
-            mapping[board.Path[11]] = new Asset("St. Charles Place", TypeAsset.RealEstate, 140);
-            mapping[board.Path[13]] = new Asset("States Avenue", TypeAsset.RealEstate, 140);
-            mapping[board.Path[14]] = new Asset("Virginia Avenue", TypeAsset.RealEstate, 160);
+            mapping[board.Path[11]] = new Asset("Bandung", TypeAsset.RealEstate, 140);
+            mapping[board.Path[13]] = new Asset("Yogyakarta", TypeAsset.RealEstate, 140);
+            mapping[board.Path[14]] = new Asset("Solo", TypeAsset.RealEstate, 160);
 
             // Orange
-            mapping[board.Path[16]] = new Asset("St. James Place", TypeAsset.RealEstate, 180);
-            mapping[board.Path[18]] = new Asset("Tennessee Avenue", TypeAsset.RealEstate, 180);
-            mapping[board.Path[19]] = new Asset("New York Avenue", TypeAsset.RealEstate, 200);
+            mapping[board.Path[16]] = new Asset("Denpasar", TypeAsset.RealEstate, 180);
+            mapping[board.Path[18]] = new Asset("Malang", TypeAsset.RealEstate, 180);
+            mapping[board.Path[19]] = new Asset("Balikpapan", TypeAsset.RealEstate, 200);
 
             // Red
-            mapping[board.Path[21]] = new Asset("Kentucky Avenue", TypeAsset.RealEstate, 220);
-            mapping[board.Path[23]] = new Asset("Indiana Avenue", TypeAsset.RealEstate, 220);
-            mapping[board.Path[24]] = new Asset("Illinois Avenue", TypeAsset.RealEstate, 240);
+            mapping[board.Path[21]] = new Asset("Manado", TypeAsset.RealEstate, 220);
+            mapping[board.Path[23]] = new Asset("Pontianak", TypeAsset.RealEstate, 220);
+            mapping[board.Path[24]] = new Asset("Batam", TypeAsset.RealEstate, 240);
 
             // Yellow
-            mapping[board.Path[26]] = new Asset("Atlantic Avenue", TypeAsset.RealEstate, 260);
-            mapping[board.Path[27]] = new Asset("Ventnor Avenue", TypeAsset.RealEstate, 260);
-            mapping[board.Path[29]] = new Asset("Marvin Gardens", TypeAsset.RealEstate, 280);
+            mapping[board.Path[26]] = new Asset("Depok", TypeAsset.RealEstate, 260);
+            mapping[board.Path[27]] = new Asset("Tangerang", TypeAsset.RealEstate, 260);
+            mapping[board.Path[29]] = new Asset("Bekasi", TypeAsset.RealEstate, 280);
 
             // Green
-            mapping[board.Path[31]] = new Asset("Pacific Avenue", TypeAsset.RealEstate, 300);
-            mapping[board.Path[32]] = new Asset("North Carolina Avenue", TypeAsset.RealEstate, 300);
-            mapping[board.Path[34]] = new Asset("Pennsylvania Avenue", TypeAsset.RealEstate, 320);
+            mapping[board.Path[31]] = new Asset("Bogor", TypeAsset.RealEstate, 300);
+            mapping[board.Path[32]] = new Asset("Jakarta Selatan", TypeAsset.RealEstate, 300);
+            mapping[board.Path[34]] = new Asset("Jakarta Pusat", TypeAsset.RealEstate, 320);
 
             // Dark Blue
-            mapping[board.Path[37]] = new Asset("Park Place", TypeAsset.RealEstate, 350);
-            mapping[board.Path[39]] = new Asset("Boardwalk", TypeAsset.RealEstate, 400);
+            mapping[board.Path[37]] = new Asset("Jakarta Utara", TypeAsset.RealEstate, 350);
+            mapping[board.Path[39]] = new Asset("Jakarta Barat", TypeAsset.RealEstate, 400);
 
             // Railroads
-            mapping[board.Path[5]] = new Asset("Reading Railroad", TypeAsset.Railroad, 200);
-            mapping[board.Path[15]] = new Asset("Pennsylvania Railroad", TypeAsset.Railroad, 200);
-            mapping[board.Path[25]] = new Asset("B&O Railroad", TypeAsset.Railroad, 200);
-            mapping[board.Path[35]] = new Asset("Short Line Railroad", TypeAsset.Railroad, 200);
+            mapping[board.Path[5]] = new Asset("Stasiun Gambir", TypeAsset.Railroad, 200);
+            mapping[board.Path[15]] = new Asset("Stasiun Pasar Senen", TypeAsset.Railroad, 200);
+            mapping[board.Path[25]] = new Asset("Stasiun Manggarai", TypeAsset.Railroad, 200);
+            mapping[board.Path[35]] = new Asset("Stasiun Tanah Abang", TypeAsset.Railroad, 200);
 
             // Utilities
-            mapping[board.Path[12]] = new Asset("Electric Company", TypeAsset.PublicService, 150);
-            mapping[board.Path[28]] = new Asset("Water Works", TypeAsset.PublicService, 150);
+            mapping[board.Path[12]] = new Asset("PLN", TypeAsset.PublicService, 150);
+            mapping[board.Path[28]] = new Asset("PDAM", TypeAsset.PublicService, 150);
 
             return mapping;
         }

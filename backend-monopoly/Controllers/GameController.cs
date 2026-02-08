@@ -327,7 +327,6 @@ namespace MonopolyBackend.Controllers
             if (!result.IsSuccess)
                 return BadRequest(new { error = result.Error?.Message });
 
-            // MAP: Domain (bool) → DTO (ActionResultResponse)
             var dto = new ActionResultResponse
             {
                 Success = true,

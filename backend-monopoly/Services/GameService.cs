@@ -26,6 +26,7 @@ namespace MonopolyBackend.Services
         public IPlayer? Winner { get; set; }
         private Dictionary<IPlayer, int> _playerJailTurns { get; set; }
         private Dictionary<IPlayer, int> _playerGetOutOfJailCards { get; set; }
+        private Dictionary<IPlayer, bool> _hasRolledThisTurn { get; set; }
 
         private ServiceResult<IPlayer> ValidatePlayerTurn(string playerName)
         {
@@ -61,6 +62,7 @@ namespace MonopolyBackend.Services
             PlayerMoney = new Dictionary<IPlayer, List<IMoney>>();
             _playerJailTurns = new Dictionary<IPlayer, int>();
             _playerGetOutOfJailCards = new Dictionary<IPlayer, int>();
+            _hasRolledThisTurn = new Dictionary<IPlayer, bool>();
             CurrentTurn = 0;
             IsGameOver = false;
             Winner = null;
@@ -71,6 +73,7 @@ namespace MonopolyBackend.Services
                 PlayerMoney[player] = new List<IMoney> { new Money(1500) }; // Initial money
                 _playerJailTurns[player] = 0;
                 _playerGetOutOfJailCards[player] = 0;
+                _hasRolledThisTurn[player] = false;
             }
         }
 
@@ -93,6 +96,8 @@ namespace MonopolyBackend.Services
                 return;
             }
 
+            // Reset roll flag untuk pemain selanjutnya
+            _hasRolledThisTurn[CurrentPlayer] = false;
         }
 
         // HandleNegativeBalance() deleted - bankruptcy handled via API
@@ -873,6 +878,12 @@ namespace MonopolyBackend.Services
                     new ServiceError(ErrorType.Validation, "Player is in jail. Use jail-specific actions.")
                 );
 
+            // Validasi: cek apakah pemain sudah roll di turn ini
+            if (_hasRolledThisTurn.ContainsKey(CurrentPlayer) && _hasRolledThisTurn[CurrentPlayer])
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "You have already rolled this turn.")
+                );
+
             var rollResult = RollDices();
             if (!rollResult.IsSuccess || rollResult.Data == null)
                 return ServiceResult<RollDiceResult>.Fail(
@@ -899,6 +910,9 @@ namespace MonopolyBackend.Services
                     TileType = CurrentPlayer.CurrentTile?.TilesType.ToString() ?? ""
                 }
             };
+
+            // Set flag bahwa pemain sudah roll
+            _hasRolledThisTurn[CurrentPlayer] = true;
 
             return ServiceResult<RollDiceResult>.Success(result);
         }
@@ -1148,6 +1162,12 @@ namespace MonopolyBackend.Services
             var validationResult = ValidatePlayerTurn(playerName);
             if (!validationResult.IsSuccess)
                 return ServiceResult<bool>.Fail(validationResult.Error!);
+
+            // Validasi: pemain harus sudah roll dice
+            if (!_hasRolledThisTurn.ContainsKey(CurrentPlayer) || !_hasRolledThisTurn[CurrentPlayer])
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "You must roll dice before ending turn.")
+                );
 
             NextTurn();
             return ServiceResult<bool>.Success(true);
