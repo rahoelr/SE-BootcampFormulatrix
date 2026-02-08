@@ -11,7 +11,7 @@ import type {
   ForceEndGameResponse,
 } from '../types';
 
-const BASE_URL = 'http://localhost:5278/api/game';
+const BASE_URL = 'http://13.212.217.150:8080/api/game';
 
 const api = axios.create({
   baseURL: BASE_URL,
