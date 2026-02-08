@@ -45,6 +45,22 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Cloudflare Tunnel for HTTPS
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: monopoly-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - nginx
+    networks:
+      - monopoly-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 networks:
   monopoly-network:
     driver: bridge
