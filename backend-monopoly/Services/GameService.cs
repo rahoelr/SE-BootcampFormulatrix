@@ -3,10 +3,12 @@ namespace MonopolyBackend.Services
     using MonopolyBackend.Enums;
     using MonopolyBackend.Interfaces;
     using MonopolyBackend.Models;
+    using MonopolyBackend.Models.Results;
     using MonopolyBackend.Common;
     using MonopolyBackend.Structs;
     using System.Collections.Generic;
-    using MonopolyBackend.Services.Results;
+    using MonopolyBackend.DTOs.Requests; // Only for input parameters (TradeRequest)
+    using MonopolyBackend.DTOs.Responses; // Only for DTO Mappers (GetGameState, etc.)
 
     public class GameService
     {
@@ -24,14 +26,27 @@ namespace MonopolyBackend.Services
         public IPlayer? Winner { get; set; }
         private Dictionary<IPlayer, int> _playerJailTurns { get; set; }
         private Dictionary<IPlayer, int> _playerGetOutOfJailCards { get; set; }
-        public event Action<string>? OnMessage;
-        public event Action<IPlayer, int, int>? OnDiceRolled;
-        public event Action<IPlayer, ITile>? OnPlayerMoved;
-        public event Action<IPlayer, IAsset>? OnPropertyBought;
-        public event Action<IPlayer, int>? OnRentPaid;
-        public event Action<ICard>? OnCardDrawn;
-        public event Action<IPlayer>? OnPlayerBankrupt;
-        public event Action<IPlayer>? OnPlayerWins;
+
+        #region API Action Methods
+
+        /// <summary>
+        /// Validates if it's the player's turn
+        /// </summary>
+        private ServiceResult<IPlayer> ValidatePlayerTurn(string playerName)
+        {
+            var player = Players.FirstOrDefault(p => p.Name == playerName);
+            if (player == null)
+                return ServiceResult<IPlayer>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Player '{playerName}' not found.")
+                );
+
+            if (CurrentPlayer != player)
+                return ServiceResult<IPlayer>.Fail(
+                    new ServiceError(ErrorType.Validation, $"It's not {playerName}'s turn. Current player is {CurrentPlayer.Name}.")
+                );
+
+            return ServiceResult<IPlayer>.Success(player);
+        }
 
         private const int GO_SALARY = 200;
         private const int JAIL_POSITION = 10;
@@ -66,209 +81,14 @@ namespace MonopolyBackend.Services
 
         public void StartGame()
         {
-            OnMessage?.Invoke("Game dimulai! Gas bro!");
-            OnMessage?.Invoke($"Pemain : {string.Join(", ", Players.Select(p => p.Name))}");
-            OnMessage?.Invoke($"Giliran : {CurrentPlayer.Name}");
         }
 
-        // ===== MAIN GAME LOOP - SINGLE TURN =====
-        public void PlayTurn()
-        {
-            var currentPlayer = CurrentPlayer;
+        // ===== MAIN GAME LOOP - Removed (Console-only) =====
+        // PlayTurn() method deleted - incompatible with REST API
+        // Use atomic action methods instead: ExecuteRollDice, ExecuteBuyProperty, etc.
 
-            // Skip bankrupt players
-            if (currentPlayer.PlayerState == PlayerState.Bankrupt)
-            {
-                NextTurn();
-                return;
-            }
-
-            // Display current game state
-            _view.ClearScreen();
-            _view.DrawBoard(Board, Players);
-
-            var playerMoneyDict = new Dictionary<IPlayer, int>();
-            foreach (var player in Players)
-            {
-                playerMoneyDict[player] = GetPlayerMoney(player);
-            }
-
-            _view.ShowAllPlayersInfo(Players, playerMoneyDict);
-            _view.ShowPlayerInfo(currentPlayer, GetPlayerMoney(currentPlayer));
-            _view.ShowTurnHeader(currentPlayer.Name);
-
-            // Handle jail
-            if (currentPlayer.PlayerState == PlayerState.InJail)
-            {
-                HandleJailOptions();
-                if (currentPlayer.PlayerState == PlayerState.InJail)
-                {
-                    _view.WaitForKeyPress();
-                    NextTurn();
-                    return;
-                }
-            }
-
-            // Roll dice and move
-            bool rolled = false;
-            bool canRollAgain = false;
-            int consecutiveDoubles = 0;
-
-            do
-            {
-                if (!rolled || canRollAgain)
-                {
-                    _view.ShowMenu("Aksi", new List<string>
-                    {
-                        "Lempar Dadu",
-                        "Lihat Properti",
-                        "Kelola Properti",
-                        "Berdagang",
-                        "Akhiri Giliran"
-                    });
-
-                    int choice = _view.GetPlayerChoice(5);
-
-                    switch (choice)
-                    {
-                        case 1:
-                            int dice1, dice2;
-                            (dice1, dice2) = RollDices();
-                            rolled = true;
-
-                            if (dice1 == dice2)
-                            {
-                                consecutiveDoubles++;
-                                if (consecutiveDoubles >= 3)
-                                {
-                                    _view.ShowWarning("Tiga kali ganda berturut-turut! Masuk penjara!");
-                                    SendToJail();
-                                    canRollAgain = false;
-                                }
-                                else
-                                {
-                                    canRollAgain = true;
-                                }
-                            }
-                            else
-                            {
-                                canRollAgain = false;
-                            }
-
-                            if (currentPlayer.PlayerState != PlayerState.InJail)
-                            {
-                                MovePlayer(dice1 + dice2);
-                                OnLand();
-
-                                // Handle property purchase
-                                OfferPropertyPurchase();
-                            }
-                            break;
-
-                        case 2:
-                            ShowPlayerProperties();
-                            break;
-
-                        case 3:
-                            ManagePlayerProperties();
-                            break;
-
-                        case 4:
-                            TradeFlow();
-                            break;
-
-                        case 5:
-                            rolled = true;
-                            canRollAgain = false;
-                            break;
-                    }
-                }
-            } while (canRollAgain && currentPlayer.PlayerState != PlayerState.InJail && !IsGameOver);
-
-            if (!IsGameOver)
-            {
-                // Post-turn actions
-                HandleNegativeBalance();
-                _view.WaitForKeyPress();
-                NextTurn();
-            }
-        }
-
-        private void TradeFlow()
-        {
-            var currentPlayer = CurrentPlayer;
-            var otherPlayers = Players
-                .Where(p => p != currentPlayer && p.PlayerState != PlayerState.Bankrupt)
-                .ToList();
-
-            if (otherPlayers.Count == 0)
-            {
-                _view.ShowMessage("Tidak ada pemain lain untuk berdagang.");
-                _view.WaitForKeyPress();
-                return;
-            }
-
-            _view.ShowMessage("\n=== Perdagangan ===");
-
-            var targetPlayer = _view.SelectPlayer(
-                otherPlayers,
-                "Pilih pemain untuk berdagang:",
-                p => $"{p.Name} - ${GetPlayerMoney(p)} - {p.Assets.Count} properti"
-            );
-
-            if (targetPlayer == null)
-            {
-                return;
-            }
-
-            // Get properties to offer
-            List<IAsset> offeredProperties = new List<IAsset>();
-            if (currentPlayer.Assets.Count > 0)
-            {
-                offeredProperties = _view.SelectMultipleFromPropertyList(
-                    currentPlayer.Assets.ToList(),
-                    $"Pilih properti Anda untuk ditawarkan",
-                    a => a.Name
-                );
-            }
-            else
-            {
-                _view.ShowMessage($"{currentPlayer.Name} tidak memiliki properti.");
-            }
-
-            int offeredMoney = _view.GetMoneyAmount("Masukkan jumlah uang untuk ditawarkan: $");
-
-            // Get properties to request
-            List<IAsset> requestedProperties = new List<IAsset>();
-            if (targetPlayer.Assets.Count > 0)
-            {
-                requestedProperties = _view.SelectMultipleFromPropertyList(
-                    targetPlayer.Assets.ToList(),
-                    $"Pilih properti {targetPlayer.Name} yang Anda inginkan",
-                    a => a.Name
-                );
-            }
-            else
-            {
-                _view.ShowMessage($"{targetPlayer.Name} tidak memiliki properti.");
-            }
-
-            int requestedMoney = _view.GetMoneyAmount("Masukkan jumlah uang yang diminta: $");
-
-            // Show trade summary
-            _view.ShowTradeOffer(currentPlayer, targetPlayer, offeredProperties, offeredMoney, requestedProperties, requestedMoney);
-
-            if (_view.GetYesNo($"Apakah {targetPlayer.Name} menerima perdagangan ini?"))
-            {
-                PlayerProposeTrade(currentPlayer, targetPlayer, offeredProperties, offeredMoney, requestedProperties, requestedMoney);
-            }
-            else
-            {
-                _view.ShowMessage("Perdagangan ditolak.");
-            }
-
-            _view.WaitForKeyPress();
-        }
+        // TradeFlow() deleted - use ExecuteTrade() instead
+        
         public void NextTurn()
         {
             do
@@ -281,57 +101,12 @@ namespace MonopolyBackend.Services
             {
                 IsGameOver = true;
                 Winner = activePlayers[0];
-                OnPlayerWins?.Invoke(Winner);
                 return;
             }
 
-            OnMessage?.Invoke($"Giliran : {CurrentPlayer.Name}");
-
         }
 
-        private void HandleNegativeBalance()
-        {
-            var currentPlayer = CurrentPlayer;
-            int playerMoney = GetPlayerMoney(currentPlayer).Data;
-
-            // Check if current player is bankrupt
-            if (playerMoney < 0)
-            {
-                _view.ShowWarning($"{currentPlayer.Name} memiliki saldo negatif!");
-
-                // Allow player to mortgage properties or sell houses
-                while (GetPlayerMoney(currentPlayer).Data < 0 && currentPlayer.Assets.Count > 0)
-                {
-                    _view.ShowMessage($"Saldo saat ini: ${GetPlayerMoney(currentPlayer).Data}");
-                    _view.ShowMenu("Anda harus mengumpulkan dana!", new List<string>
-                    {
-                        "Jual Rumah",
-                        "Mortgage Properti",
-                        "Nyatakan Bangkrut"
-                    });
-
-                    int choice = _view.GetPlayerChoice(3);
-                    switch (choice)
-                    {
-                        case 1:
-                            SellHouseFlow();
-                            break;
-                        case 2:
-                            MortgageFlow();
-                            break;
-                        case 3:
-                            CheckIsBankrupt(currentPlayer);
-                            return;
-                    }
-                }
-
-                var getPlayerMoney = GetPlayerMoney(currentPlayer).Data;
-                if (getPlayerMoney < 0)
-                {
-                    CheckIsBankrupt(currentPlayer);
-                }
-            }
-        }
+        // HandleNegativeBalance() deleted - bankruptcy handled via API
 
         public ServiceResult<int> GetPlayerMoney(IPlayer player)
         {
@@ -349,7 +124,6 @@ namespace MonopolyBackend.Services
             var cardResult = DrawCardFromDeck(deck);
             if (!cardResult.IsSuccess || cardResult.Data == null)
             {
-                OnMessage?.Invoke("Gagal mengambil kartu dari deck.");
                 return;
             }
 
@@ -362,7 +136,6 @@ namespace MonopolyBackend.Services
             CurrentPlayer.CurrentTile = Board.Path[JAIL_POSITION];
             CurrentPlayer.PlayerState = PlayerState.InJail;
             _playerJailTurns[CurrentPlayer] = 0;
-            OnMessage?.Invoke($"{CurrentPlayer.Name} masuk Penjara!");
         }
 
         public ServiceResult<ITile> MovePlayer(int steps)
@@ -374,14 +147,10 @@ namespace MonopolyBackend.Services
             if (newPosition < oldPosition && steps > 0)
             {
                 AddMoney(CurrentPlayer, GO_SALARY);
-                OnMessage?.Invoke($"{CurrentPlayer.Name} melewati MULAI dan menerima ${GO_SALARY}!");
             }
 
             CurrentPlayer.PathIndex = newPosition;
             CurrentPlayer.CurrentTile = Board.Path[newPosition];
-
-            OnPlayerMoved?.Invoke(CurrentPlayer, CurrentPlayer.CurrentTile);
-            OnMessage?.Invoke($"{CurrentPlayer.Name} mendarat di {CurrentPlayer.CurrentTile.Name}");
 
             return ServiceResult<ITile>.Success(CurrentPlayer.CurrentTile);
         }
@@ -408,7 +177,6 @@ namespace MonopolyBackend.Services
 
                 case CardEffect.GetOutJail:
                     _playerGetOutOfJailCards[CurrentPlayer]++;
-                    OnMessage?.Invoke($"{CurrentPlayer.Name} menerima kartu Bebas Penjara!");
                     break;
 
                 case CardEffect.Move:
@@ -425,50 +193,7 @@ namespace MonopolyBackend.Services
             }
         }
 
-        private void HandleJailOptions()
-        {
-            var currentPlayer = CurrentPlayer;
-
-            // Increment jail turns dan cek apakah sudah 3 giliran
-            var handleJailTurnResult = HandleJailTurn();
-            bool canChoose = handleJailTurnResult.IsSuccess && handleJailTurnResult.Data;
-            if (!canChoose)
-            {
-                // Sudah 3 giliran atau state bukan InJail, sudah dihandle
-                return;
-            }
-
-            var getJailReturns = GetJailTurns(currentPlayer);
-            int jailTurns = getJailReturns.Data;
-            _view.ShowWarning($"{currentPlayer.Name} di Penjara! (Giliran {jailTurns}/3)");
-
-            var options = new List<string>
-            {
-                "Coba lempar ganda",
-                "Bayar $50 untuk keluar"
-            };
-
-            if ()
-            {
-                options.Add("Gunakan kartu Bebas Penjara");
-            }
-
-            _view.ShowMenu("Opsi Penjara", options);
-            int choice = _view.GetPlayerChoice(options.Count);
-
-            switch (choice)
-            {
-                case 1:
-                    TryRollDoublesInJail();
-                    break;
-                case 2:
-                    PayJailFee();
-                    break;
-                case 3:
-                    UseGetOutOfJailCard();
-                    break;
-            }
-        }
+        // HandleJailOptions() deleted - use ExecutePayJailFee, ExecuteUseJailCard, ExecuteTryRollDoublesInJail
 
         public ServiceResult<bool> HandleJailTurn()
         {
@@ -483,12 +208,9 @@ namespace MonopolyBackend.Services
             _playerJailTurns[CurrentPlayer]++;
             int jailTurns = _playerJailTurns[CurrentPlayer];
 
-            OnMessage?.Invoke($"{CurrentPlayer.Name} di penjara, giliran ke-{jailTurns}");
-
             // After 3 turns, must pay
             if (jailTurns >= 3)
             {
-                OnMessage?.Invoke($"{CurrentPlayer.Name} sudah 3 giliran di penjara, harus membayar ${JAIL_FEE}");
                 return PayJailFee();
             }
 
@@ -511,7 +233,6 @@ namespace MonopolyBackend.Services
 
             CurrentPlayer.PlayerState = PlayerState.Normal;
             _playerJailTurns[CurrentPlayer] = 0;
-            OnMessage?.Invoke($"{CurrentPlayer.Name} keluar dari penjara.");
             return ServiceResult<bool>.Success(true);
         }
 
@@ -524,7 +245,6 @@ namespace MonopolyBackend.Services
 
             if (_playerGetOutOfJailCards[CurrentPlayer] <= 0)
             {
-                OnMessage?.Invoke($"{CurrentPlayer.Name} tidak memiliki kartu bebas penjara.");
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Player does not have a Get Out of Jail card.")
                 );
@@ -533,7 +253,6 @@ namespace MonopolyBackend.Services
             _playerGetOutOfJailCards[CurrentPlayer]--;
             CurrentPlayer.PlayerState = PlayerState.Normal;
             _playerJailTurns[CurrentPlayer] = 0;
-            OnMessage?.Invoke($"{CurrentPlayer.Name} menggunakan kartu bebas penjara!");
             return ServiceResult<bool>.Success(true);
         }
 
@@ -550,19 +269,19 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(result);
         }
 
-        public ServiceResult<RollDicesResults> RollDices()
+        public ServiceResult<DiceRoll> RollDices()
         {
             Random rand = new Random();
             int dice1 = rand.Next(1, 7);
             int dice2 = rand.Next(1, 7);
 
-            var result = new RollDicesResults(dice1, dice2);
-            int total = dice1 + dice2;
+            var result = new DiceRoll
+            {
+                Dice1 = dice1,
+                Dice2 = dice2
+            };
 
-            OnDiceRolled?.Invoke(CurrentPlayer, dice1, dice2);
-            OnMessage?.Invoke($"{CurrentPlayer.Name} melempar dadu dan mendapatkan {dice1} dan {dice2} dengan total {total}");
-
-            return ServiceResult<RollDicesResults>.Success(result);
+            return ServiceResult<DiceRoll>.Success(result);
         }
 
         public ServiceResult<bool> TryRollDoublesInJail()
@@ -580,65 +299,39 @@ namespace MonopolyBackend.Services
 
             var diceData = rollResult.Data;
 
-            if (diceData.Dice1 == diceData.Dice2)
+            if (diceData.IsDouble)
             {
                 // Berhasil roll ganda - keluar dari penjara
                 CurrentPlayer.PlayerState = PlayerState.Normal;
                 _playerJailTurns[CurrentPlayer] = 0;
-                OnMessage?.Invoke($"{CurrentPlayer.Name} melempar ganda dan keluar dari penjara!");
 
                 // Pindahkan pemain
-                MovePlayer(diceData.Dice1 + diceData.Dice2);
+                MovePlayer(diceData.Total);
                 OnLand();
                 return ServiceResult<bool>.Success(true);
             }
             else
             {
-                OnMessage?.Invoke($"{CurrentPlayer.Name} tidak mendapat ganda. Tetap di penjara.");
                 return ServiceResult<bool>.Success(false);
             }
         }
 
-        private void OfferPropertyPurchase()
-        {
-            var tile = CurrentPlayer.CurrentTile;
-            if (tile == null) return;
+        // OfferPropertyPurchase() deleted - use ExecuteBuyProperty() API method instead
 
-            var asset = TileAssets.ContainsKey(tile) ? TileAssets[tile] : null;
-
-            if (asset == null || asset.Owner != null)
-                return;
-
-            var player = CurrentPlayer;
-
-            _view.ShowPropertyDetails(asset);
-
-            int playerMoney = GetPlayerMoney(player);
-            if (playerMoney >= asset.Value)
-            {
-                if (_view.GetYesNo($"Beli {asset.Name} seharga ${asset.Value}?"))
-                {
-                    PlayerBuyAsset(asset);
-                }
-            }
-            else
-            {
-                _view.ShowWarning($"Uang tidak cukup untuk membeli {asset.Name}.");
-            }
-        }
-
-        public bool PlayerBuyAsset(IAsset asset)
+        public ServiceResult<bool> PlayerBuyAsset(IAsset asset)
         {
             if (asset.Owner != null)
             {
-                OnMessage?.Invoke("Properti ini sudah dimiliki.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Properti ini sudah dimiliki.")
+                );
             }
 
-            if (!SubtractMoney(CurrentPlayer, asset.Value))
+            if (!SubtractMoney(CurrentPlayer, asset.Value).IsSuccess)
             {
-                OnMessage?.Invoke($"{CurrentPlayer.Name} tidak punya cukup uang untuk membeli {asset.Name}.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, $"{CurrentPlayer.Name} tidak punya cukup uang untuk membeli {asset.Name}.")
+                );
             }
 
             // Set owner dan tambahkan ke assets
@@ -646,182 +339,56 @@ namespace MonopolyBackend.Services
             CurrentPlayer.Assets.Add(asset);
             PlayerAssets[CurrentPlayer].Add(asset);
 
-            OnPropertyBought?.Invoke(CurrentPlayer, asset);
-            OnMessage?.Invoke($"{CurrentPlayer.Name} membeli {asset.Name} seharga ${asset.Value}!");
-            return true;
+            return ServiceResult<bool>.Success(true);
         }
 
-        private void ShowPlayerProperties()
-        {
-            var player = CurrentPlayer;
+        // ShowPlayerProperties() deleted - frontend displays player properties via GetGameState() API
 
-            if (player.Assets.Count == 0)
-            {
-                _view.ShowMessage("Anda tidak memiliki properti.");
-                _view.WaitForKeyPress();
-                return;
-            }
+        // ManagePlayerProperties() deleted - use specific API endpoints (build-house, sell-house, mortgage, etc.)
 
-            int? selectedIndex = _view.SelectFromPropertyList(
-                player.Assets.ToList(),
-                "Properti Anda",
-                asset =>
-                {
-                    string status = asset.AssetCondition == AssetCondition.Mortgage ? " [MORTGAGE]" : "";
-                    string houses = asset.AmountHouse > 0 ? $" - {asset.AmountHouse} rumah" : "";
-                    return $"{asset.Name} - ${asset.Value}{status}{houses}";
-                }
-            );
+        // BuildHouseFlow() deleted - use ExecuteBuildHouse() API method instead
 
-            if (selectedIndex.HasValue)
-            {
-                _view.ShowPropertyDetails(player.Assets[selectedIndex.Value]);
-            }
-            _view.WaitForKeyPress();
-        }
-
-        private void ManagePlayerProperties()
-        {
-            var player = CurrentPlayer;
-
-            if (player.Assets.Count == 0)
-            {
-                _view.ShowMessage("Anda tidak memiliki properti.");
-                _view.WaitForKeyPress();
-                return;
-            }
-
-            _view.ShowMenu("Kelola Properti", new List<string>
-            {
-                "Bangun Rumah",
-                "Jual Rumah",
-                "Mortgage Properti",
-                "Unmortgage Properti",
-                "Kembali"
-            });
-
-            int choice = _view.GetPlayerChoice(5);
-
-            switch (choice)
-            {
-                case 1:
-                    BuildHouseFlow();
-                    break;
-                case 2:
-                    SellHouseFlow();
-                    break;
-                case 3:
-                    MortgageFlow();
-                    break;
-                case 4:
-                    UnmortgageFlow();
-                    break;
-                case 5:
-                    return;
-            }
-        }
-
-        // ===== BUILD HOUSE =====
-        private void BuildHouseFlow()
-        {
-            var player = CurrentPlayer;
-            var buildableProperties = player.Assets
-                .Where(a => a.TypeAsset == TypeAsset.RealEstate &&
-                            a.AmountHouse < 5 &&
-                            a.AssetCondition == AssetCondition.Normal)
-                .ToList();
-
-            if (buildableProperties.Count == 0)
-            {
-                _view.ShowMessage("Tidak ada properti untuk dibangun.");
-                _view.WaitForKeyPress();
-                return;
-            }
-
-            int? selectedIndex = _view.SelectFromPropertyList(
-                buildableProperties,
-                "Bangun Rumah",
-                asset =>
-                {
-                    int houseCost = asset.Value / 2;
-                    return $"{asset.Name} - Biaya rumah: ${houseCost} - Saat ini: {asset.AmountHouse} rumah";
-                }
-            );
-
-            if (selectedIndex.HasValue)
-            {
-                PlayerAddHouse(buildableProperties[selectedIndex.Value]);
-            }
-            _view.WaitForKeyPress();
-        }
-
-        public bool PlayerAddHouse(IAsset asset)
+        public ServiceResult<bool> PlayerAddHouse(IAsset asset)
         {
             if (asset.Owner != CurrentPlayer)
             {
-                OnMessage?.Invoke("Anda tidak memiliki properti ini.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Anda tidak memiliki properti ini.")
+                );
             }
 
             if (asset.TypeAsset != TypeAsset.RealEstate)
             {
-                OnMessage?.Invoke("Hanya bisa membangun rumah di properti RealEstate.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Hanya bisa membangun rumah di properti RealEstate.")
+                );
             }
 
             if (asset.AmountHouse >= 5)
             {
-                OnMessage?.Invoke("Maksimum rumah (hotel) sudah dibangun.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Maksimum rumah (hotel) sudah dibangun.")
+                );
             }
 
             // Hitung biaya rumah (50% dari nilai properti)
             int houseCost = asset.Value / 2;
 
-            if (!SubtractMoney(CurrentPlayer, houseCost))
+            if (!SubtractMoney(CurrentPlayer, houseCost).IsSuccess)
             {
-                OnMessage?.Invoke($"Uang tidak cukup. Rumah berharga ${houseCost}.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Uang tidak cukup. Rumah berharga ${houseCost}.")
+                );
             }
 
             asset.AmountHouse++;
             string buildingType = asset.AmountHouse == 5 ? "hotel" : "rumah";
-            OnMessage?.Invoke($"{CurrentPlayer.Name} membangun {buildingType} di {asset.Name}.");
-            return true;
+            return ServiceResult<bool>.Success(true);
         }
 
-        private void SellHouseFlow()
-        {
-            var player = CurrentPlayer;
-            var sellableProperties = player.Assets
-                .Where(a => a.AmountHouse > 0)
-                .ToList();
+        // SellHouseFlow() deleted - use ExecuteSellHouse() API method instead
 
-            if (sellableProperties.Count == 0)
-            {
-                _view.ShowMessage("Tidak ada rumah untuk dijual.");
-                _view.WaitForKeyPress();
-                return;
-            }
-
-            int? selectedIndex = _view.SelectFromPropertyList(
-                sellableProperties,
-                "Jual Rumah",
-                asset =>
-                {
-                    int sellPrice = asset.Value / 4;
-                    return $"{asset.Name} - Rumah: {asset.AmountHouse} - Harga jual: ${sellPrice}";
-                }
-            );
-
-            if (selectedIndex.HasValue)
-            {
-                PlayerSellHouse(sellableProperties[selectedIndex.Value]);
-            }
-            _view.WaitForKeyPress();
-        }
-
-        public bool PlayerProposeTrade(IPlayer player1, IPlayer player2,
+        public ServiceResult<bool> PlayerProposeTrade(IPlayer player1, IPlayer player2,
                                 List<IAsset> offer1, int money1,
                                 List<IAsset> offer2, int money2)
         {
@@ -830,8 +397,9 @@ namespace MonopolyBackend.Services
             {
                 if (asset.Owner != player1)
                 {
-                    OnMessage?.Invoke($"{player1.Name} tidak memiliki {asset.Name}.");
-                    return false;
+                    return ServiceResult<bool>.Fail(
+                        new ServiceError(ErrorType.Validation, $"{player1.Name} tidak memiliki {asset.Name}.")
+                    );
                 }
             }
 
@@ -839,25 +407,34 @@ namespace MonopolyBackend.Services
             {
                 if (asset.Owner != player2)
                 {
-                    OnMessage?.Invoke($"{player2.Name} tidak memiliki {asset.Name}.");
-                    return false;
+                    return ServiceResult<bool>.Fail(
+                        new ServiceError(ErrorType.Validation, $"{player2.Name} tidak memiliki {asset.Name}.")
+                    );
                 }
             }
 
             // Check money using PlayerMoney dictionary
-            int player1Money = GetPlayerMoney(player1);
-            int player2Money = GetPlayerMoney(player2);
+            var player1MoneyResult = GetPlayerMoney(player1);
+            var player2MoneyResult = GetPlayerMoney(player2);
 
-            if (player1Money < money1)
+            if (!player1MoneyResult.IsSuccess)
+                return ServiceResult<bool>.Fail(player1MoneyResult.Error!);
+
+            if (!player2MoneyResult.IsSuccess)
+                return ServiceResult<bool>.Fail(player2MoneyResult.Error!);
+
+            if (player1MoneyResult.Data < money1)
             {
-                OnMessage?.Invoke($"{player1.Name} tidak punya ${money1}.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, $"{player1.Name} tidak punya ${money1}.")
+                );
             }
 
-            if (player2Money < money2)
+            if (player2MoneyResult.Data < money2)
             {
-                OnMessage?.Invoke($"{player2.Name} tidak punya ${money2}.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, $"{player2.Name} tidak punya ${money2}.")
+                );
             }
 
             // Execute trade - Transfer assets
@@ -892,28 +469,30 @@ namespace MonopolyBackend.Services
                 AddMoney(player1, money2);
             }
 
-            OnMessage?.Invoke($"Perdagangan selesai antara {player1.Name} dan {player2.Name}!");
-            return true;
+            return ServiceResult<bool>.Success(true);
         }
 
-        public bool PlayerSellHouse(IAsset asset)
+        public ServiceResult<bool> PlayerSellHouse(IAsset asset)
         {
             if (asset.Owner != CurrentPlayer)
             {
-                OnMessage?.Invoke("Anda tidak memiliki properti ini.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Anda tidak memiliki properti ini.")
+                );
             }
 
             if (asset.TypeAsset != TypeAsset.RealEstate)
             {
-                OnMessage?.Invoke("Properti ini tidak memiliki rumah.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Properti ini tidak memiliki rumah.")
+                );
             }
 
             if (asset.AmountHouse <= 0)
             {
-                OnMessage?.Invoke("Tidak ada rumah untuk dijual.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Tidak ada rumah untuk dijual.")
+                );
             }
 
             // Jual rumah dengan harga 50% dari harga beli
@@ -922,124 +501,69 @@ namespace MonopolyBackend.Services
             AddMoney(CurrentPlayer, sellPrice);
 
             string buildingType = asset.AmountHouse == 4 ? "hotel" : "rumah";
-            OnMessage?.Invoke($"{CurrentPlayer.Name} menjual {buildingType} di {asset.Name} seharga ${sellPrice}.");
-            return true;
+            return ServiceResult<bool>.Success(true);
         }
 
-        private void MortgageFlow()
-        {
-            var player = CurrentPlayer;
-            var mortgageableProperties = player.Assets
-                .Where(a => a.AssetCondition == AssetCondition.Normal && a.AmountHouse == 0)
-                .ToList();
-
-            if (mortgageableProperties.Count == 0)
-            {
-                _view.ShowMessage("Tidak ada properti untuk di-mortgage.");
-                _view.WaitForKeyPress();
-                return;
-            }
-
-            int? selectedIndex = _view.SelectFromPropertyList(
-                mortgageableProperties,
-                "Mortgage Properti",
-                asset =>
-                {
-                    int mortgageValue = asset.Value / 2;
-                    return $"{asset.Name} - Nilai mortgage: ${mortgageValue}";
-                }
-            );
-
-            if (selectedIndex.HasValue)
-            {
-                PlayerMortgageAsset(player, mortgageableProperties[selectedIndex.Value]);
-            }
-            _view.WaitForKeyPress();
-        }
+        // MortgageFlow() deleted - use ExecuteMortgage() API method instead
 
 
-        public bool PlayerMortgageAsset(IPlayer player, IAsset asset)
+        public ServiceResult<bool> PlayerMortgageAsset(IPlayer player, IAsset asset)
         {
             if (asset.Owner != player)
             {
-                OnMessage?.Invoke("Pemain tidak memiliki properti ini.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player does not own this asset.")
+                );
             }
 
             if (asset.AssetCondition == AssetCondition.Mortgage)
             {
-                OnMessage?.Invoke("Properti sudah di-mortgage.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Asset is already mortgaged.")
+                );
             }
 
             if (asset.AmountHouse > 0)
             {
-                OnMessage?.Invoke("Harus jual semua rumah sebelum mortgage.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Must sell all houses before mortgaging.")
+                );
             }
 
             asset.AssetCondition = AssetCondition.Mortgage;
-            int mortgageValue = GetMortgageValue(asset);
+            int mortgageValue = GetMortgageValue(asset).Data;
             AddMoney(player, mortgageValue);
-            OnMessage?.Invoke($"{player.Name} mortgage {asset.Name} seharga ${mortgageValue}.");
-            return true;
+            return ServiceResult<bool>.Success(true);
         }
 
-        private void UnmortgageFlow()
-        {
-            var player = CurrentPlayer;
-            var mortgagedProperties = player.Assets
-                .Where(a => a.AssetCondition == AssetCondition.Mortgage)
-                .ToList();
+        // UnmortgageFlow() deleted - use ExecuteUnmortgage() API method instead
 
-            if (mortgagedProperties.Count == 0)
-            {
-                _view.ShowMessage("Tidak ada properti yang di-mortgage.");
-                _view.WaitForKeyPress();
-                return;
-            }
-
-            int? selectedIndex = _view.SelectFromPropertyList(
-                mortgagedProperties,
-                "Unmortgage Properti",
-                asset =>
-                {
-                    int unmortgageValue = (asset.Value / 2) + ((asset.Value / 2) / 10);
-                    return $"{asset.Name} - Biaya unmortgage: ${unmortgageValue}";
-                }
-            );
-
-            if (selectedIndex.HasValue)
-            {
-                PlayerUnmortgageAsset(player, mortgagedProperties[selectedIndex.Value]);
-            }
-            _view.WaitForKeyPress();
-        }
-
-        public bool PlayerUnmortgageAsset(IPlayer player, IAsset asset)
+        public ServiceResult<bool> PlayerUnmortgageAsset(IPlayer player, IAsset asset)
         {
             if (asset.Owner != player)
             {
-                OnMessage?.Invoke("Pemain tidak memiliki properti ini.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player does not own this asset.")
+                );
             }
 
             if (asset.AssetCondition != AssetCondition.Mortgage)
             {
-                OnMessage?.Invoke("Properti tidak di-mortgage.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Asset is not mortgaged.")
+                );
             }
 
-            int unmortgageValue = GetUnmortgageCost(asset);
-            if (!SubtractMoney(player, unmortgageValue))
+            int unmortgageValue = GetUnmortgageCost(asset).Data;
+            if (!SubtractMoney(player, unmortgageValue).IsSuccess)
             {
-                OnMessage?.Invoke($"Uang tidak cukup untuk unmortgage. Butuh ${unmortgageValue}.");
-                return false;
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Insufficient funds to unmortgage asset.")
+                );
             }
 
             asset.AssetCondition = AssetCondition.Normal;
-            OnMessage?.Invoke($"{player.Name} unmortgage {asset.Name} seharga ${unmortgageValue}.");
-            return true;
+            return ServiceResult<bool>.Success(true);
         }
 
         public void OnLand()
@@ -1051,7 +575,6 @@ namespace MonopolyBackend.Services
             {
                 case EffectType.Go:
                     // Already handled in MovePlayer if passing GO
-                    OnMessage?.Invoke($"{CurrentPlayer.Name} berada di MULAI.");
                     break;
 
                 case EffectType.CommunityChest:
@@ -1076,7 +599,6 @@ namespace MonopolyBackend.Services
                     break;
 
                 case EffectType.FreeParking:
-                    OnMessage?.Invoke($"{CurrentPlayer.Name} parkir gratis.");
                     break;
 
                 case EffectType.Nothing:
@@ -1095,7 +617,6 @@ namespace MonopolyBackend.Services
             // Get asset from TileAssets dictionary
             if (!TileAssets.ContainsKey(tile) || TileAssets[tile] == null)
             {
-                OnMessage?.Invoke($"{tile.Name} tidak memiliki asset.");
                 return;
             }
 
@@ -1104,7 +625,6 @@ namespace MonopolyBackend.Services
             if (asset.Owner == null)
             {
                 // Property available for purchase
-                OnMessage?.Invoke($"{tile.Name} tersedia untuk dibeli seharga ${asset.Value}");
             }
             else if (asset.Owner != CurrentPlayer)
             {
@@ -1117,23 +637,18 @@ namespace MonopolyBackend.Services
                     if (subtractResult.IsSuccess)
                     {
                         AddMoney(asset.Owner, rent);
-                        OnRentPaid?.Invoke(CurrentPlayer, rent);
-                        OnMessage?.Invoke($"{CurrentPlayer.Name} membayar sewa ${rent} kepada {asset.Owner.Name}");
                     }
                     else
                     {
-                        OnMessage?.Invoke($"{CurrentPlayer.Name} tidak mampu membayar sewa ${rent}!");
                         CheckIsBankrupt(CurrentPlayer);
                     }
                 }
                 else
                 {
-                    OnMessage?.Invoke($"{tile.Name} sedang di-mortgage. Tidak ada sewa.");
                 }
             }
             else
             {
-                OnMessage?.Invoke($"{CurrentPlayer.Name} memiliki properti ini.");
             }
         }
 
@@ -1205,12 +720,10 @@ namespace MonopolyBackend.Services
             if (position < oldPosition)
             {
                 AddMoney(CurrentPlayer, GO_SALARY);
-                OnMessage?.Invoke($"{CurrentPlayer.Name} melewati MULAI dan menerima ${GO_SALARY}!");
             }
 
             CurrentPlayer.PathIndex = position;
             CurrentPlayer.CurrentTile = Board.Path[position];
-            OnPlayerMoved?.Invoke(CurrentPlayer, CurrentPlayer.CurrentTile);
         }
 
         public ServiceResult<ICard> DrawCardFromDeck(IDecks deck)
@@ -1227,9 +740,6 @@ namespace MonopolyBackend.Services
             cards.RemoveAt(0);
             cards.Add(card);
 
-            OnCardDrawn?.Invoke(card);
-            OnMessage?.Invoke($"Kartu: {card.Name} - {card.Description}");
-
             return ServiceResult<ICard>.Success(card);
         }
 
@@ -1242,8 +752,6 @@ namespace MonopolyBackend.Services
             if (playerMoney.Data + totalValue.Data < 0)
             {
                 player.PlayerState = PlayerState.Bankrupt;
-                OnPlayerBankrupt?.Invoke(player);
-                OnMessage?.Invoke($"{player.Name} BANGKRUT!");
 
                 // Return assets to bank
                 foreach (var asset in player.Assets.ToList())
@@ -1261,7 +769,6 @@ namespace MonopolyBackend.Services
                 {
                     IsGameOver = true;
                     Winner = activePlayers[0];
-                    OnPlayerWins?.Invoke(Winner);
                 }
 
                 return ServiceResult<bool>.Success(true);
@@ -1322,7 +829,6 @@ namespace MonopolyBackend.Services
 
             var money = new Money(amount);
             PlayerMoney[player].Add(money);
-            OnMessage?.Invoke($"{player.Name} menerima ${amount}");
             return ServiceResult<bool>.Success(true);
         }
 
@@ -1337,7 +843,6 @@ namespace MonopolyBackend.Services
             int currentMoney = PlayerMoney[player].Sum(m => m.Balance);
             if (currentMoney < amount)
             {
-                OnMessage?.Invoke($"{player.Name} tidak punya cukup uang. Dibutuhkan ${amount}, punya ${currentMoney}");
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Insufficient funds.")
                 );
@@ -1365,9 +870,485 @@ namespace MonopolyBackend.Services
                 }
             }
 
-            OnMessage?.Invoke($"{player.Name} membayar ${amount}");
             return ServiceResult<bool>.Success(true);
         }
+
+        /// <summary>
+        /// Execute roll dice action
+        /// </summary>
+        public ServiceResult<RollDiceResult> ExecuteRollDice(string playerName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
+
+            if (CurrentPlayer.PlayerState == PlayerState.InJail)
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player is in jail. Use jail-specific actions.")
+                );
+
+            var rollResult = RollDices();
+            if (!rollResult.IsSuccess || rollResult.Data == null)
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Failed to roll dice.")
+                );
+
+            var roll = rollResult.Data;
+
+            // Move player
+            var moveResult = MovePlayer(roll.Total);
+            if (!moveResult.IsSuccess)
+                return ServiceResult<RollDiceResult>.Fail(moveResult.Error!);
+
+            // Handle landing
+            OnLand();
+
+            var result = new RollDiceResult
+            {
+                Roll = roll,
+                Move = new MoveResult
+                {
+                    NewPosition = CurrentPlayer.PathIndex,
+                    TileName = CurrentPlayer.CurrentTile?.Name ?? "",
+                    TileType = CurrentPlayer.CurrentTile?.TilesType.ToString() ?? ""
+                }
+            };
+
+            return ServiceResult<RollDiceResult>.Success(result);
+        }
+
+        /// <summary>
+        /// Execute buy property action (based on current position)
+        /// </summary>
+        public ServiceResult<PropertyActionResult> ExecuteBuyProperty(string playerName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            var tile = CurrentPlayer.CurrentTile;
+            if (tile == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player is not on a valid tile.")
+                );
+
+            if (!TileAssets.ContainsKey(tile) || TileAssets[tile] == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "This tile has no property to buy.")
+                );
+
+            var asset = TileAssets[tile]!;
+            var buyResult = PlayerBuyAsset(asset);
+            
+            var result = new PropertyActionResult
+            {
+                Success = buyResult.IsSuccess,
+                Message = buyResult.IsSuccess ? $"Successfully bought {asset.Name}" : buyResult.Error?.Message ?? "Failed to buy property"
+            };
+
+            return buyResult.IsSuccess 
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(buyResult.Error!);
+        }
+
+        /// <summary>
+        /// Execute build house action
+        /// </summary>
+        public ServiceResult<PropertyActionResult> ExecuteBuildHouse(string playerName, string propertyName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            var asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+            if (asset == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
+                );
+
+            var buildResult = PlayerAddHouse(asset);
+            
+            var result = new PropertyActionResult
+            {
+                Success = buildResult.IsSuccess,
+                Message = buildResult.IsSuccess ? $"Built house on {propertyName}" : buildResult.Error?.Message ?? "Failed to build house"
+            };
+
+            return buildResult.IsSuccess 
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(buildResult.Error!);
+        }
+
+        /// <summary>
+        /// Execute sell house action
+        /// </summary>
+        public ServiceResult<PropertyActionResult> ExecuteSellHouse(string playerName, string propertyName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            var asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+            if (asset == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
+                );
+
+            var sellResult = PlayerSellHouse(asset);
+            
+            var result = new PropertyActionResult
+            {
+                Success = sellResult.IsSuccess,
+                Message = sellResult.IsSuccess ? $"Sold house on {propertyName}" : sellResult.Error?.Message ?? "Failed to sell house"
+            };
+
+            return sellResult.IsSuccess 
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(sellResult.Error!);
+        }
+
+        /// <summary>
+        /// Execute mortgage property action
+        /// </summary>
+        public ServiceResult<PropertyActionResult> ExecuteMortgage(string playerName, string propertyName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            var asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+            if (asset == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
+                );
+
+            var mortgageResult = PlayerMortgageAsset(CurrentPlayer, asset);
+            
+            var result = new PropertyActionResult
+            {
+                Success = mortgageResult.IsSuccess,
+                Message = mortgageResult.IsSuccess ? $"Mortgaged {propertyName}" : mortgageResult.Error?.Message ?? "Failed to mortgage"
+            };
+
+            return mortgageResult.IsSuccess 
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(mortgageResult.Error!);
+        }
+
+        /// <summary>
+        /// Execute unmortgage property action
+        /// </summary>
+        public ServiceResult<PropertyActionResult> ExecuteUnmortgage(string playerName, string propertyName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            var asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+            if (asset == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
+                );
+
+            var unmortgageResult = PlayerUnmortgageAsset(CurrentPlayer, asset);
+            
+            var result = new PropertyActionResult
+            {
+                Success = unmortgageResult.IsSuccess,
+                Message = unmortgageResult.IsSuccess ? $"Unmortgaged {propertyName}" : unmortgageResult.Error?.Message ?? "Failed to unmortgage"
+            };
+
+            return unmortgageResult.IsSuccess 
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(unmortgageResult.Error!);
+        }
+
+        /// <summary>
+        /// Execute trade between players
+        /// </summary>
+        public ServiceResult<TradeResult> ExecuteTrade(TradeRequest request)
+        {
+            var player1 = Players.FirstOrDefault(p => p.Name == request.PlayerName);
+            var player2 = Players.FirstOrDefault(p => p.Name == request.TargetPlayerName);
+
+            if (player1 == null)
+                return ServiceResult<TradeResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Player '{request.PlayerName}' not found.")
+                );
+
+            if (player2 == null)
+                return ServiceResult<TradeResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Target player '{request.TargetPlayerName}' not found.")
+                );
+
+            // Find assets by name
+            var offer1 = new List<IAsset>();
+            foreach (var propName in request.OfferedProperties)
+            {
+                var asset = player1.Assets.FirstOrDefault(a => a.Name == propName);
+                if (asset == null)
+                    return ServiceResult<TradeResult>.Fail(
+                        new ServiceError(ErrorType.Validation, $"Property '{propName}' not found in {player1.Name}'s assets.")
+                    );
+                offer1.Add(asset);
+            }
+
+            var offer2 = new List<IAsset>();
+            foreach (var propName in request.RequestedProperties)
+            {
+                var asset = player2.Assets.FirstOrDefault(a => a.Name == propName);
+                if (asset == null)
+                    return ServiceResult<TradeResult>.Fail(
+                        new ServiceError(ErrorType.Validation, $"Property '{propName}' not found in {player2.Name}'s assets.")
+                    );
+                offer2.Add(asset);
+            }
+
+            var tradeResult = PlayerProposeTrade(player1, player2, offer1, request.OfferedMoney, offer2, request.RequestedMoney);
+            
+            var result = new TradeResult
+            {
+                Success = tradeResult.IsSuccess,
+                Message = tradeResult.IsSuccess ? "Trade completed successfully" : tradeResult.Error?.Message ?? "Trade failed",
+                Player1Name = player1.Name,
+                Player2Name = player2.Name
+            };
+
+            return tradeResult.IsSuccess 
+                ? ServiceResult<TradeResult>.Success(result)
+                : ServiceResult<TradeResult>.Fail(tradeResult.Error!);
+        }
+
+        /// <summary>
+        /// Execute pay jail fee action
+        /// </summary>
+        public ServiceResult<bool> ExecutePayJailFee(string playerName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<bool>.Fail(validationResult.Error!);
+
+            var payResult = PayJailFee();
+            return payResult;
+        }
+
+        /// <summary>
+        /// Execute use get out of jail card action
+        /// </summary>
+        public ServiceResult<bool> ExecuteUseJailCard(string playerName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<bool>.Fail(validationResult.Error!);
+
+            var useCardResult = UseGetOutOfJailCard();
+            return useCardResult;
+        }
+
+        /// <summary>
+        /// Execute try to roll doubles while in jail
+        /// </summary>
+        public ServiceResult<RollDiceResult> ExecuteTryRollDoublesInJail(string playerName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
+
+            if (CurrentPlayer.PlayerState != PlayerState.InJail)
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player is not in jail.")
+                );
+
+            var rollResult = RollDices();
+            if (!rollResult.IsSuccess || rollResult.Data == null)
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Failed to roll dice.")
+                );
+
+            var roll = rollResult.Data;
+
+            // TryRollDoublesInJail handles move if double is rolled
+            var doubleResult = TryRollDoublesInJail();
+
+            var result = new RollDiceResult
+            {
+                Roll = roll,
+                Move = new MoveResult
+                {
+                    NewPosition = CurrentPlayer.PathIndex,
+                    TileName = CurrentPlayer.CurrentTile?.Name ?? "Jail",
+                    TileType = CurrentPlayer.CurrentTile?.TilesType.ToString() ?? "Special"
+                }
+            };
+
+            return ServiceResult<RollDiceResult>.Success(result);
+        }
+
+        /// <summary>
+        /// Execute end turn action
+        /// </summary>
+        public ServiceResult<bool> ExecuteEndTurn(string playerName)
+        {
+            var validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<bool>.Fail(validationResult.Error!);
+
+            NextTurn();
+            return ServiceResult<bool>.Success(true);
+        }
+
+        #endregion
+
+        #region DTO Mappers
+
+        /// <summary>
+        /// Maps current game state to GameStateResponse DTO
+        /// </summary>
+        public GameStateResponse GetGameState()
+        {
+            var playerResponses = Players.Select(MapPlayerToResponse).ToList();
+            var propertyResponses = TileAssets.Values
+                .Where(a => a != null)
+                .Select(a => MapPropertyToResponse(a!))
+                .ToList();
+
+            return new GameStateResponse
+            {
+                IsGameStarted = true,
+                IsGameOver = IsGameOver,
+                WinnerName = Winner?.Name,
+                CurrentTurn = CurrentTurn,
+                CurrentPlayerName = CurrentPlayer.Name,
+                Players = playerResponses,
+                AllProperties = propertyResponses,
+                AvailableActions = GetAvailableActionsForCurrentPlayer()
+            };
+        }
+
+        /// <summary>
+        /// Maps player to PlayerResponse DTO
+        /// </summary>
+        private PlayerResponse MapPlayerToResponse(IPlayer player)
+        {
+            var currentTile = player.CurrentTile ?? Board.Path[0];
+            var properties = player.Assets.Select(MapPropertyToResponse).ToList();
+
+            return new PlayerResponse
+            {
+                Name = player.Name,
+                Money = GetPlayerMoney(player).Data,
+                Position = player.PathIndex,
+                CurrentTileName = currentTile.Name,
+                CurrentTileType = currentTile.TilesType.ToString(),
+                State = player.PlayerState.ToString(),
+                JailTurns = _playerJailTurns.ContainsKey(player) ? _playerJailTurns[player] : 0,
+                HasGetOutOfJailCard = _playerGetOutOfJailCards.ContainsKey(player) && _playerGetOutOfJailCards[player] > 0,
+                Properties = properties
+            };
+        }
+
+        /// <summary>
+        /// Maps asset to PropertyResponse DTO
+        /// </summary>
+        private PropertyResponse MapPropertyToResponse(IAsset asset)
+        {
+            int rent = 0;
+            if (asset.Owner != null)
+            {
+                var rentResult = CalculateRent(asset);
+                if (rentResult.IsSuccess)
+                {
+                    rent = rentResult.Data;
+                }
+            }
+
+            return new PropertyResponse
+            {
+                Name = asset.Name,
+                Type = asset.TypeAsset.ToString(),
+                Value = asset.Value,
+                OwnerName = asset.Owner?.Name,
+                Houses = asset.AmountHouse,
+                IsMortgaged = asset.AssetCondition == AssetCondition.Mortgage,
+                Rent = rent
+            };
+        }
+
+        /// <summary>
+        /// Gets available actions for current player
+        /// </summary>
+        private List<string> GetAvailableActionsForCurrentPlayer()
+        {
+            var actions = new List<string>();
+
+            if (IsGameOver)
+                return actions;
+
+            var player = CurrentPlayer;
+
+            // Roll dice action (always available unless in jail with other options)
+            if (player.PlayerState == PlayerState.InJail)
+            {
+                actions.Add("pay-jail-fee");
+                actions.Add("try-roll-doubles");
+                if (_playerGetOutOfJailCards[player] > 0)
+                {
+                    actions.Add("use-jail-card");
+                }
+            }
+            else
+            {
+                actions.Add("roll-dice");
+            }
+
+            // Property actions on current tile
+            var tile = player.CurrentTile;
+            if (tile != null && TileAssets.ContainsKey(tile))
+            {
+                var asset = TileAssets[tile];
+                if (asset != null && asset.Owner == null)
+                {
+                    // Can buy property
+                    if (GetPlayerMoney(player).Data >= asset.Value)
+                    {
+                        actions.Add("buy-property");
+                    }
+                }
+            }
+
+            // Property management actions
+            if (player.Assets.Any(a => a.TypeAsset == TypeAsset.RealEstate && a.AmountHouse < 5 && a.AssetCondition == AssetCondition.Normal))
+            {
+                actions.Add("build-house");
+            }
+
+            if (player.Assets.Any(a => a.AmountHouse > 0))
+            {
+                actions.Add("sell-house");
+            }
+
+            if (player.Assets.Any(a => a.AssetCondition == AssetCondition.Normal && a.AmountHouse == 0))
+            {
+                actions.Add("mortgage-property");
+            }
+
+            if (player.Assets.Any(a => a.AssetCondition == AssetCondition.Mortgage))
+            {
+                actions.Add("unmortgage-property");
+            }
+
+            // Trade action (always available if player has assets or opponents exist)
+            if (GetActivePlayers().Count > 1)
+            {
+                actions.Add("trade");
+            }
+
+            actions.Add("end-turn");
+
+            return actions;
+        }
+
+        #endregion
 
     }
 }
