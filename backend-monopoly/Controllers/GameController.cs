@@ -335,5 +335,41 @@ namespace MonopolyBackend.Controllers
 
             return Ok(dto);
         }
+
+        [HttpPost("force-end")]
+        public ActionResult<ForceEndGameResponse> ForceEndGame()
+        {
+            if (_currentGame == null)
+                return NotFound(new { error = "No active game" });
+
+            var result = _currentGame.ExecuteForceEndGame();
+            if (!result.IsSuccess)
+                return BadRequest(new { error = result.Error?.Message });
+
+            // MAP: Domain (ForceEndGameResult) → DTO (ForceEndGameResponse)
+            var dto = new ForceEndGameResponse
+            {
+                Success = true,
+                Message = $"Game ended. Winner: {result.Data.WinnerName}",
+                GameResult = new GameResultResponse
+                {
+                    IsGameOver = result.Data.IsGameOver,
+                    WinnerName = result.Data.WinnerName,
+                    TotalTurns = result.Data.TotalTurns,
+                    Rankings = result.Data.Rankings.Select(r => new PlayerRankingResponse
+                    {
+                        Rank = r.Rank,
+                        PlayerName = r.PlayerName,
+                        TotalWealth = r.TotalWealth,
+                        Cash = r.Cash,
+                        AssetsValue = r.AssetsValue,
+                        PropertyCount = r.PropertyCount,
+                        HouseCount = r.HouseCount
+                    }).ToList()
+                }
+            };
+
+            return Ok(dto);
+        }
     }
 }

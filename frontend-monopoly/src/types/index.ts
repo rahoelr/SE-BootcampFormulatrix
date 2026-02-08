@@ -88,6 +88,30 @@ export interface ActionResultResponse {
   data?: any;
 }
 
+// Force End Game Response
+export interface PlayerRankingResponse {
+  rank: number;
+  playerName: string;
+  totalWealth: number;
+  cash: number;
+  assetsValue: number;
+  propertyCount: number;
+  houseCount: number;
+}
+
+export interface GameResultResponse {
+  isGameOver: boolean;
+  winnerName: string;
+  totalTurns: number;
+  rankings: PlayerRankingResponse[];
+}
+
+export interface ForceEndGameResponse {
+  success: boolean;
+  message: string;
+  gameResult: GameResultResponse;
+}
+
 // ============================================
 // ENUMS
 // ============================================

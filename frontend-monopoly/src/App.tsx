@@ -90,17 +90,19 @@ function App() {
     setShowForceGameOverModal(true);
   };
 
-  const handleForceGameOver = async (winnerName: string) => {
+  const handleForceGameOver = async () => {
     try {
-      await executeAction(() => gameApi.forceGameOver(winnerName));
+      const response = await gameApi.forceEndGame();
       setShowForceGameOverModal(false);
-      toast.success(`Game Over! ${winnerName} wins!`);
-    } catch (err) {
-      // If endpoint doesn't exist, show info message
-      toast('Backend does not support force game over. This is a frontend-only demo feature.', { 
-        icon: 'ℹ️', 
-        duration: 5000 
-      });
+      
+      // Force refresh game state to get the final rankings
+      await refreshState();
+      
+      toast.success(`Game Over! Winner: ${response.data.gameResult.winnerName}`);
+    } catch (err: any) {
+      // If endpoint doesn't exist or error
+      const errorMsg = err.response?.data?.error || 'Failed to end game';
+      toast.error(errorMsg);
       setShowForceGameOverModal(false);
     }
   };

@@ -8,6 +8,7 @@ import type {
   BoardResponse,
   RollDiceResponse,
   ActionResultResponse,
+  ForceEndGameResponse,
 } from '../types';
 
 const BASE_URL = 'http://localhost:5278/api/game';
@@ -94,6 +95,6 @@ export const gameApi = {
   // TEST/DEBUG ACTIONS
   // ============================================
   
-  forceGameOver: (winnerName: string) =>
-    api.post<GameStateResponse>('/force-game-over', { winnerName }),
+  forceEndGame: () =>
+    api.post<ForceEndGameResponse>('/force-end'),
 };

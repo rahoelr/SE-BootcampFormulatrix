@@ -1305,5 +1305,81 @@ namespace MonopolyBackend.Services
             return actions;
         }
 
+        // ========== FORCE END GAME METHODS ==========
+
+        /// <summary>
+        /// Menghitung total kekayaan pemain (uang + nilai aset)
+        /// </summary>
+        public ServiceResult<int> CalculatePlayerTotalWealth(IPlayer player)
+        {
+            // Uang cash
+            var moneyResult = GetPlayerMoney(player);
+            if (!moneyResult.IsSuccess)
+                return ServiceResult<int>.Fail(moneyResult.Error!);
+            
+            // Nilai aset (properti + rumah)
+            var assetsResult = CalculatePlayerTotalAssetsValue(player);
+            if (!assetsResult.IsSuccess)
+                return ServiceResult<int>.Fail(assetsResult.Error!);
+            
+            int totalWealth = moneyResult.Data + assetsResult.Data;
+            return ServiceResult<int>.Success(totalWealth);
+        }
+
+        /// <summary>
+        /// Force end game dan tentukan pemenang berdasarkan total kekayaan
+        /// </summary>
+        public ServiceResult<ForceEndGameResult> ExecuteForceEndGame()
+        {
+            if (IsGameOver)
+                return ServiceResult<ForceEndGameResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Game is already over.")
+                );
+
+            // Hitung kekayaan semua pemain (termasuk bankrupt)
+            var rankings = new List<PlayerRanking>();
+            
+            foreach (var player in Players)
+            {
+                var wealthResult = CalculatePlayerTotalWealth(player);
+                var moneyResult = GetPlayerMoney(player);
+                var assetsResult = CalculatePlayerTotalAssetsValue(player);
+                
+                rankings.Add(new PlayerRanking
+                {
+                    PlayerName = player.Name,
+                    TotalWealth = wealthResult.Data,
+                    Cash = moneyResult.Data,
+                    AssetsValue = assetsResult.Data,
+                    PropertyCount = player.Assets.Count,
+                    HouseCount = player.Assets.Sum(a => a.AmountHouse)
+                });
+            }
+            
+            // Sort berdasarkan total wealth (descending)
+            rankings = rankings.OrderByDescending(r => r.TotalWealth).ToList();
+            
+            // Assign rank
+            for (int i = 0; i < rankings.Count; i++)
+            {
+                rankings[i].Rank = i + 1;
+            }
+            
+            // Set winner (pemain dengan total wealth terbanyak)
+            var winner = Players.First(p => p.Name == rankings[0].PlayerName);
+            IsGameOver = true;
+            Winner = winner;
+            
+            var result = new ForceEndGameResult
+            {
+                IsGameOver = true,
+                WinnerName = winner.Name,
+                TotalTurns = CurrentTurn,
+                Rankings = rankings
+            };
+            
+            return ServiceResult<ForceEndGameResult>.Success(result);
+        }
+
     }
 }
