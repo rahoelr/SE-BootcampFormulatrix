@@ -27,7 +27,7 @@ export function Board({ board, gameState, lastRoll }: BoardProps) {
   return (
     <div className="w-full flex items-center justify-center">
       {/* Board Grid */}
-      <div className="grid grid-cols-11 grid-rows-11 gap-1 bg-black p-1.5 shadow-brutal w-full max-w-[85vw]">
+      <div className="grid grid-cols-11 grid-rows-11 gap-1 bg-black p-1.5 shadow-brutal w-full max-w-[65vw]">
         {board.tiles.map((tile) => {
           const { row, col } = getTileGridPosition(tile.position);
           return (

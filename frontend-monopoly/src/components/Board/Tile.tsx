@@ -30,7 +30,7 @@ export function Tile({ tile, playersOnTile, owner }: TileProps) {
     <div
       className={`
         relative border-3 border-black bg-white
-        h-[90px] p-2 shadow-brutal-tile
+        h-[75px] p-1.5 shadow-brutal-tile
         flex flex-col justify-between
         hover:shadow-brutal-sm transition-all duration-100
         overflow-hidden
@@ -41,20 +41,20 @@ export function Tile({ tile, playersOnTile, owner }: TileProps) {
         {/* Title */}
         <div className="text-center overflow-hidden">
           {corner && (
-            <div className="text-2xl mb-1">{getCornerEmoji()}</div>
+            <div className="text-xl mb-0.5">{getCornerEmoji()}</div>
           )}
           {tile.effect === 'Chance' || tile.effect === 'CommunityChest' || tile.effect === 'Tax' ? (
-            <div className="text-xl mb-1">{getSpecialEmoji()}</div>
+            <div className="text-lg mb-0.5">{getSpecialEmoji()}</div>
           ) : null}
-          {tile.type === 'Railroad' && <div className="text-xl mb-1">🚂</div>}
+          {tile.type === 'Railroad' && <div className="text-lg mb-0.5">🚂</div>}
           {tile.type === 'Utility' && (
-            <div className="text-xl mb-1">
+            <div className="text-lg mb-0.5">
               {tile.name.includes('Electric') || tile.name.includes('PLN') ? '⚡' : '💧'}
             </div>
           )}
-          {tile.type === 'Property' && <div className="text-xl mb-1">🏘️</div>}
+          {tile.type === 'Property' && <div className="text-lg mb-0.5">🏘️</div>}
           <div className={`
-            ${corner ? 'text-sm' : tile.type === 'Railroad' || tile.type === 'Utility' ? 'text-sm' : 'text-xs'} 
+            ${corner ? 'text-xs' : tile.type === 'Railroad' || tile.type === 'Utility' ? 'text-xs' : 'text-[10px]'} 
             font-display font-bold leading-tight uppercase 
             ${tile.type === 'Railroad' || tile.type === 'Utility' ? 'line-clamp-2' : 'truncate'} 
             w-full px-0.5
@@ -65,15 +65,8 @@ export function Tile({ tile, playersOnTile, owner }: TileProps) {
 
         {/* Price */}
         {tile.price !== null && (
-          <div className="text-[10px] text-center text-black font-mono mt-1 font-semibold">
+          <div className="text-[9px] text-center text-black font-mono mt-0.5 font-semibold">
             ${tile.price}
-          </div>
-        )}
-
-        {/* Owner indicator */}
-        {owner && (
-          <div className="absolute top-0.5 right-0.5">
-            <div className="w-2 h-2 bg-green-500 border border-black" title={`Owned by ${owner.ownerName}`} />
           </div>
         )}
 
@@ -92,7 +85,7 @@ export function Tile({ tile, playersOnTile, owner }: TileProps) {
 
       {/* Players on this tile */}
       {playersOnTile.length > 0 && (
-        <div className="flex flex-wrap gap-0.5 mt-1 justify-center overflow-hidden max-h-8">
+        <div className="flex flex-wrap gap-0.5 mt-0.5 justify-center overflow-hidden max-h-6">
           {playersOnTile.map(({ player, index }) => (
             <PlayerToken key={player.name} player={player} playerIndex={index} size="sm" />
           ))}

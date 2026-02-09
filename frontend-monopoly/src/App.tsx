@@ -8,6 +8,9 @@ import { GameOver } from './components/Game/GameOver';
 import { ForceGameOverModal } from './components/Game/ForceGameOverModal';
 import { NewGameModal } from './components/Game/NewGameModal';
 import { AudioController } from './components/Audio/AudioController';
+import monopolyBg from './assets/monopoly_bg.webp';
+import monopolyMainTheme from './assets/monopoly_main_theme.mp3';
+import victorySound from './assets/victory.mp3';
 // import { PropertyActionModal } from './components/Actions/PropertyActionModal'; // Not needed - now in ActionPanel
 import { Board } from './components/Board/Board';
 import { PlayerCard } from './components/Player/PlayerCard';
@@ -255,88 +258,65 @@ function App() {
   };
   */
 
-  // Loading state
-  if (appState === 'loading') {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-2xl font-display font-black text-black uppercase tracking-wide">Loading Monopoly...</div>
-      </div>
-    );
-  }
+  return (
+    <>
+      {/* Toaster - always available */}
+      <Toaster position="top-right" />
 
-  // No game state
-  if (appState === 'no-game') {
-    return (
-      <>
-        <Toaster position="top-right" />
+      {/* Loading state */}
+      {appState === 'loading' && (
+        <div 
+          className="min-h-screen flex items-center justify-center bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${monopolyBg})` }}
+        >
+          <div className="text-2xl font-display font-black text-black uppercase tracking-wide bg-white/90 backdrop-blur-sm border-4 border-black shadow-brutal-lg px-8 py-4">Loading Monopoly...</div>
+        </div>
+      )}
+
+      {/* No game state */}
+      {appState === 'no-game' && (
         <GameSetup onGameCreated={handleGameCreated} />
-        <AudioController />
-      </>
-    );
-  }
+      )}
 
-  // Game over state
-  if (appState === 'game-over' && gameState) {
-    return (
-      <>
-        <Toaster position="top-right" />
+      {/* Game over state */}
+      {appState === 'game-over' && gameState && (
         <GameOver gameState={gameState} onNewGame={handleNewGame} />
-        <AudioController />
-      </>
-    );
-  }
+      )}
 
-  // Playing state
-  if (appState === 'playing' && gameState && board) {
-    // const currentPlayer = gameState.players.find(p => p.name === gameState.currentPlayerName); // Not needed anymore
-
-    return (
-      <div className="min-h-screen bg-white p-2">
-        <Toaster position="top-right" />
-
-        <div className="w-full">
-          {/* Header */}
-          <div className="relative flex justify-center items-center mb-2 px-2">
-            <div className="text-center">
-              <h1 className="text-5xl font-display font-black text-black uppercase tracking-tight">🎲 Monopoly</h1>
-              <p className="font-body text-black font-semibold">Turn {gameState.currentTurn + 1}</p>
+      {/* Playing state */}
+      {appState === 'playing' && gameState && board && (
+        <div 
+          className="min-h-screen p-2 bg-cover bg-center bg-no-repeat relative flex items-center justify-center"
+          style={{ backgroundImage: `url(${monopolyBg})` }}
+        >
+          {/* Main Layout - Board Left, Sidebar Right - Centered */}
+          <div className="flex items-start justify-center gap-6">
+            {/* Board - Left Side */}
+            <div className="flex-shrink-0">
+              <Board board={board} gameState={gameState} lastRoll={lastRoll} />
             </div>
             
-            <div className="absolute right-2 flex gap-2">
-              <button
-                onClick={handleTestGameOver}
-                className="bg-red-500 text-white px-3 py-2 font-display font-bold uppercase tracking-wide text-sm border-4 border-black shadow-brutal hover:shadow-brutal-sm hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-100"
-                title="Test Game Over scenario"
-              >
-                💀 End Game
-              </button>
-              <button
-                onClick={handleResetGame}
-                className="bg-black text-white px-4 py-2 font-display font-bold uppercase tracking-wide border-4 border-black shadow-brutal hover:shadow-brutal-sm hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-100"
-                title="Start a new game"
-              >
-                🔄 New Game
-              </button>
-            </div>
-          </div>
+            {/* Sidebar - Right Side */}
+            <div className="flex flex-col gap-2 w-[480px] flex-shrink-0">
+              {/* Control Buttons - Top of Sidebar */}
+              <div className="flex gap-2 mb-2">
+                <button
+                  onClick={handleTestGameOver}
+                  className="flex-1 bg-red-500 text-white px-3 py-2 font-display font-bold uppercase tracking-wide text-sm border-4 border-black shadow-brutal hover:shadow-brutal-sm hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-100"
+                  title="Test Game Over scenario"
+                >
+                  💀 End Game
+                </button>
+                <button
+                  onClick={handleResetGame}
+                  className="flex-1 bg-black text-white px-4 py-2 font-display font-bold uppercase tracking-wide border-4 border-black shadow-brutal hover:shadow-brutal-sm hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all duration-100"
+                  title="Start a new game"
+                >
+                  🔄 New Game
+                </button>
+              </div>
 
-          {/* Main Layout */}
-          <div className="w-full flex flex-col items-center space-y-2">
-            {/* Board - Centered */}
-            <Board board={board} gameState={gameState} lastRoll={lastRoll} />
-            
-            {/* Actions Row - Same width as board */}
-            <div className="w-full max-w-[85vw] grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-2">
-              {/* Action Panel */}
-              <ActionPanel
-                gameState={gameState}
-                onAction={handleAction}
-                onBuildHouse={handleBuildHouse}
-                onSellHouse={handleSellHouse}
-                loading={loading}
-              />
-
-              {/* Player Cards - Right Side */}
+              {/* Player Cards */}
               <div className="space-y-2">
                 {gameState.players.map((player, index) => (
                   <PlayerCard
@@ -347,60 +327,41 @@ function App() {
                   />
                 ))}
               </div>
+              
+              {/* Action Panel */}
+              <ActionPanel
+                gameState={gameState}
+                onAction={handleAction}
+                onBuildHouse={handleBuildHouse}
+                onSellHouse={handleSellHouse}
+                loading={loading}
+              />
             </div>
-
-            {/* Advanced Actions - Same width as board */}
-            {/* Property Actions panel hidden - now in ActionPanel */}
-            {/* {currentPlayer && (
-              <div className="w-full max-w-[85vw]">
-                  {gameState.availableActions.includes('build-house' as AvailableAction) && (
-                    <PropertyActions
-                      properties={currentPlayer.properties}
-                      onBuild={handleBuildHouse}
-                      onSell={handleSellHouse}
-                      loading={loading}
-                    />
-                  )}
-                </div>
-            )} */}
           </div>
+
+          {/* Force Game Over Modal */}
+          {showForceGameOverModal && gameState && (
+            <ForceGameOverModal
+              gameState={gameState}
+              onConfirm={handleForceGameOver}
+              onClose={() => setShowForceGameOverModal(false)}
+            />
+          )}
+
+          {/* New Game Modal */}
+          {showNewGameModal && (
+            <NewGameModal
+              onConfirm={handleConfirmNewGame}
+              onCancel={() => setShowNewGameModal(false)}
+            />
+          )}
         </div>
+      )}
 
-        {/* Trade Modal - Hidden for now */}
-        {/* {showTradeModal && currentPlayer && (
-          <TradeModal
-            currentPlayer={currentPlayer}
-            allPlayers={gameState.players}
-            onTrade={handleTrade}
-            onClose={() => setShowTradeModal(false)}
-            loading={loading}
-          />
-        )} */}
-
-        {/* Force Game Over Modal */}
-        {showForceGameOverModal && gameState && (
-          <ForceGameOverModal
-            gameState={gameState}
-            onConfirm={handleForceGameOver}
-            onClose={() => setShowForceGameOverModal(false)}
-          />
-        )}
-
-        {/* New Game Modal */}
-        {showNewGameModal && (
-          <NewGameModal
-            onConfirm={handleConfirmNewGame}
-            onCancel={() => setShowNewGameModal(false)}
-          />
-        )}
-
-        {/* Audio Controller */}
-        <AudioController />
-      </div>
-    );
-  }
-
-  return null;
+      {/* Single Audio Controller - switches track based on game state */}
+      <AudioController track={appState === 'game-over' ? victorySound : monopolyMainTheme} />
+    </>
+  );
 }
 
 export default App

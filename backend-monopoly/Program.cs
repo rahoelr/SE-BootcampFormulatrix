@@ -13,19 +13,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        var allowedOrigins = new List<string>
-        {
-            "http://localhost:3000",
-            "http://localhost:5173"
-        };
-
-        var configOrigins = builder.Configuration.GetSection("CORS:AllowedOrigins").Get<string[]>();
-        if (configOrigins != null && configOrigins.Length > 0)
-        {
-            allowedOrigins.AddRange(configOrigins);
-        }
-
-        policy.WithOrigins(allowedOrigins.ToArray())
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
