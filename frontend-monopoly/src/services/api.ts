@@ -21,7 +21,6 @@ const api = axios.create({
   },
 });
 
-// Error interceptor
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -32,10 +31,7 @@ api.interceptors.response.use(
 );
 
 export const gameApi = {
-  // ============================================
-  // GAME MANAGEMENT
-  // ============================================
-  
+
   createGame: (data: CreateGameRequest) =>
     api.post<GameStateResponse>('/create', data),
   
@@ -51,10 +47,6 @@ export const gameApi = {
   getState: () =>
     api.get<GameStateResponse>('/state'),
 
-  // ============================================
-  // PLAYER ACTIONS
-  // ============================================
-  
   rollDice: (playerName: string) =>
     api.post<RollDiceResponse>('/roll-dice', { playerName }),
   
@@ -76,10 +68,6 @@ export const gameApi = {
   trade: (data: TradeRequest) =>
     api.post<ActionResultResponse>('/trade', data),
 
-  // ============================================
-  // JAIL ACTIONS
-  // ============================================
-  
   payJailFee: (playerName: string) =>
     api.post<ActionResultResponse>('/pay-jail-fee', { playerName }),
   
@@ -92,10 +80,6 @@ export const gameApi = {
   endTurn: (playerName: string) =>
     api.post<ActionResultResponse>('/end-turn', { playerName }),
 
-  // ============================================
-  // TEST/DEBUG ACTIONS
-  // ============================================
-  
   forceEndGame: () =>
     api.post<ForceEndGameResponse>('/force-end'),
 };

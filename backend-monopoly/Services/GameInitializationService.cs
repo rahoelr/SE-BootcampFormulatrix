@@ -26,7 +26,6 @@ namespace MonopolyBackend.Services
                 tileAssets
             );
 
-            gameService.StartGame();
             return gameService;
         }
 

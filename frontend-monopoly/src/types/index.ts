@@ -1,9 +1,5 @@
-// ============================================
-// REQUEST TYPES
-// ============================================
-
 export interface CreateGameRequest {
-  playerNames: string[]; // 2-4 players
+  playerNames: string[]; 
 }
 
 export interface PlayerActionRequest {
@@ -21,10 +17,6 @@ export interface TradeRequest extends PlayerActionRequest {
   requestedProperties: string[];
   requestedMoney: number;
 }
-
-// ============================================
-// RESPONSE TYPES
-// ============================================
 
 export interface GameStateResponse {
   isGameStarted: boolean;
@@ -88,7 +80,6 @@ export interface ActionResultResponse {
   data?: any;
 }
 
-// Force End Game Response
 export interface PlayerRankingResponse {
   rank: number;
   playerName: string;
@@ -111,10 +102,6 @@ export interface ForceEndGameResponse {
   message: string;
   gameResult: GameResultResponse;
 }
-
-// ============================================
-// ENUMS
-// ============================================
 
 export type PlayerState = 'Normal' | 'InJail' | 'Bankrupt';
 
