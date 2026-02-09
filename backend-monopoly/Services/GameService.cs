@@ -7,7 +7,7 @@ namespace MonopolyBackend.Services
     using MonopolyBackend.Common;
     using MonopolyBackend.Structs;
     using System.Collections.Generic;
-    using MonopolyBackend.DTOs.Requests; // Only for input parameters (TradeRequest)
+    using MonopolyBackend.DTOs.Requests;
     using PlayerStateEnum = MonopolyBackend.Enums.PlayerState;
 
     public class GameService
@@ -70,7 +70,7 @@ namespace MonopolyBackend.Services
             foreach (var player in Players)
             {
                 PlayerAssets[player] = new List<IAsset>();
-                PlayerMoney[player] = new List<IMoney> { new Money(1500) }; // Initial money
+                PlayerMoney[player] = new List<IMoney> { new Money(1500) };
                 _playerJailTurns[player] = 0;
                 _playerGetOutOfJailCards[player] = 0;
                 _hasRolledThisTurn[player] = false;
@@ -80,7 +80,7 @@ namespace MonopolyBackend.Services
         public void StartGame()
         {
         }
-        
+
         public void NextTurn()
         {
             do
@@ -936,14 +936,14 @@ namespace MonopolyBackend.Services
 
             var asset = TileAssets[tile]!;
             var buyResult = PlayerBuyAsset(asset);
-            
+
             var result = new PropertyActionResult
             {
                 Success = buyResult.IsSuccess,
                 Message = buyResult.IsSuccess ? $"Successfully bought {asset.Name}" : buyResult.Error?.Message ?? "Failed to buy property"
             };
 
-            return buyResult.IsSuccess 
+            return buyResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
                 : ServiceResult<PropertyActionResult>.Fail(buyResult.Error!);
         }
@@ -961,14 +961,14 @@ namespace MonopolyBackend.Services
                 );
 
             var buildResult = PlayerAddHouse(asset);
-            
+
             var result = new PropertyActionResult
             {
                 Success = buildResult.IsSuccess,
                 Message = buildResult.IsSuccess ? $"Built house on {propertyName}" : buildResult.Error?.Message ?? "Failed to build house"
             };
 
-            return buildResult.IsSuccess 
+            return buildResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
                 : ServiceResult<PropertyActionResult>.Fail(buildResult.Error!);
         }
@@ -986,14 +986,14 @@ namespace MonopolyBackend.Services
                 );
 
             var sellResult = PlayerSellHouse(asset);
-            
+
             var result = new PropertyActionResult
             {
                 Success = sellResult.IsSuccess,
                 Message = sellResult.IsSuccess ? $"Sold house on {propertyName}" : sellResult.Error?.Message ?? "Failed to sell house"
             };
 
-            return sellResult.IsSuccess 
+            return sellResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
                 : ServiceResult<PropertyActionResult>.Fail(sellResult.Error!);
         }
@@ -1011,14 +1011,14 @@ namespace MonopolyBackend.Services
                 );
 
             var mortgageResult = PlayerMortgageAsset(CurrentPlayer, asset);
-            
+
             var result = new PropertyActionResult
             {
                 Success = mortgageResult.IsSuccess,
                 Message = mortgageResult.IsSuccess ? $"Mortgaged {propertyName}" : mortgageResult.Error?.Message ?? "Failed to mortgage"
             };
 
-            return mortgageResult.IsSuccess 
+            return mortgageResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
                 : ServiceResult<PropertyActionResult>.Fail(mortgageResult.Error!);
         }
@@ -1036,14 +1036,14 @@ namespace MonopolyBackend.Services
                 );
 
             var unmortgageResult = PlayerUnmortgageAsset(CurrentPlayer, asset);
-            
+
             var result = new PropertyActionResult
             {
                 Success = unmortgageResult.IsSuccess,
                 Message = unmortgageResult.IsSuccess ? $"Unmortgaged {propertyName}" : unmortgageResult.Error?.Message ?? "Failed to unmortgage"
             };
 
-            return unmortgageResult.IsSuccess 
+            return unmortgageResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
                 : ServiceResult<PropertyActionResult>.Fail(unmortgageResult.Error!);
         }
@@ -1087,7 +1087,7 @@ namespace MonopolyBackend.Services
             }
 
             var tradeResult = PlayerProposeTrade(player1, player2, offer1, request.OfferedMoney, offer2, request.RequestedMoney);
-            
+
             var result = new TradeResult
             {
                 Success = tradeResult.IsSuccess,
@@ -1096,7 +1096,7 @@ namespace MonopolyBackend.Services
                 Player2Name = player2.Name
             };
 
-            return tradeResult.IsSuccess 
+            return tradeResult.IsSuccess
                 ? ServiceResult<TradeResult>.Success(result)
                 : ServiceResult<TradeResult>.Fail(tradeResult.Error!);
         }
@@ -1173,7 +1173,7 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        public GameData GetGameState()
+        public ServiceResult<GameData> GetGameState()
         {
             var playerData = Players.Select(MapPlayerToData).ToList();
             var propertyData = TileAssets.Values
@@ -1181,7 +1181,7 @@ namespace MonopolyBackend.Services
                 .Select(a => MapPropertyToData(a!))
                 .ToList();
 
-            return new GameData
+            var gameData = new GameData
             {
                 IsGameOver = IsGameOver,
                 WinnerName = Winner?.Name,
@@ -1191,6 +1191,8 @@ namespace MonopolyBackend.Services
                 AllProperties = propertyData,
                 AvailableActions = GetAvailableActionsForCurrentPlayer()
             };
+
+            return ServiceResult<GameData>.Success(gameData);
         }
 
         private PlayerData MapPlayerToData(IPlayer player)
@@ -1198,10 +1200,13 @@ namespace MonopolyBackend.Services
             var currentTile = player.CurrentTile ?? Board.Path[0];
             var properties = player.Assets.Select(MapPropertyToData).ToList();
 
+            var moneyResult = GetPlayerMoney(player);
+            int playerMoney = moneyResult.IsSuccess ? moneyResult.Data : 0;
+
             return new PlayerData
             {
                 Name = player.Name,
-                Money = GetPlayerMoney(player).Data,
+                Money = playerMoney,
                 Position = player.PathIndex,
                 CurrentTileName = currentTile.Name,
                 CurrentTileType = currentTile.TilesType.ToString(),
@@ -1305,30 +1310,22 @@ namespace MonopolyBackend.Services
             return actions;
         }
 
-        // ========== FORCE END GAME METHODS ==========
-
-        /// <summary>
-        /// Menghitung total kekayaan pemain (uang + nilai aset)
-        /// </summary>
         public ServiceResult<int> CalculatePlayerTotalWealth(IPlayer player)
         {
             // Uang cash
             var moneyResult = GetPlayerMoney(player);
             if (!moneyResult.IsSuccess)
                 return ServiceResult<int>.Fail(moneyResult.Error!);
-            
+
             // Nilai aset (properti + rumah)
             var assetsResult = CalculatePlayerTotalAssetsValue(player);
             if (!assetsResult.IsSuccess)
                 return ServiceResult<int>.Fail(assetsResult.Error!);
-            
+
             int totalWealth = moneyResult.Data + assetsResult.Data;
             return ServiceResult<int>.Success(totalWealth);
         }
 
-        /// <summary>
-        /// Force end game dan tentukan pemenang berdasarkan total kekayaan
-        /// </summary>
         public ServiceResult<ForceEndGameResult> ExecuteForceEndGame()
         {
             if (IsGameOver)
@@ -1338,13 +1335,13 @@ namespace MonopolyBackend.Services
 
             // Hitung kekayaan semua pemain (termasuk bankrupt)
             var rankings = new List<PlayerRanking>();
-            
+
             foreach (var player in Players)
             {
                 var wealthResult = CalculatePlayerTotalWealth(player);
                 var moneyResult = GetPlayerMoney(player);
                 var assetsResult = CalculatePlayerTotalAssetsValue(player);
-                
+
                 rankings.Add(new PlayerRanking
                 {
                     PlayerName = player.Name,
@@ -1355,21 +1352,21 @@ namespace MonopolyBackend.Services
                     HouseCount = player.Assets.Sum(a => a.AmountHouse)
                 });
             }
-            
+
             // Sort berdasarkan total wealth (descending)
             rankings = rankings.OrderByDescending(r => r.TotalWealth).ToList();
-            
+
             // Assign rank
             for (int i = 0; i < rankings.Count; i++)
             {
                 rankings[i].Rank = i + 1;
             }
-            
+
             // Set winner (pemain dengan total wealth terbanyak)
             var winner = Players.First(p => p.Name == rankings[0].PlayerName);
             IsGameOver = true;
             Winner = winner;
-            
+
             var result = new ForceEndGameResult
             {
                 IsGameOver = true,
@@ -1377,7 +1374,7 @@ namespace MonopolyBackend.Services
                 TotalTurns = CurrentTurn,
                 Rankings = rankings
             };
-            
+
             return ServiceResult<ForceEndGameResult>.Success(result);
         }
 
