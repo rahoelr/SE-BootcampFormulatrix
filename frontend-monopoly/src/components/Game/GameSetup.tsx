@@ -3,6 +3,7 @@ import { gameApi } from '../../services/api';
 import toast from 'react-hot-toast';
 import diceLogo from '../../assets/dice_logo.png';
 import monopolyBg from '../../assets/monopoly_bg.webp';
+import { AudioController } from '../Audio/AudioController';
 
 interface GameSetupProps {
   onGameCreated: () => void;
@@ -202,6 +203,9 @@ export function GameSetup({ onGameCreated, onReset, hasActiveGame }: GameSetupPr
             100% { transform: translateX(0); }
           }
         `}</style>
+
+        {/* Audio Controller */}
+        <AudioController />
       </div>
     );
   }
