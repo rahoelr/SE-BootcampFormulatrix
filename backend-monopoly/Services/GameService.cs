@@ -637,12 +637,6 @@ namespace MonopolyBackend.Services
                         CheckIsBankrupt(CurrentPlayer);
                     }
                 }
-                else
-                {
-                }
-            }
-            else
-            {
             }
         }
 
