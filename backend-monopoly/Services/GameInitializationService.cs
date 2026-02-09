@@ -125,52 +125,34 @@ namespace MonopolyBackend.Services
         private static Dictionary<ITile, IAsset?> CreateTileAssetMapping(IBoard board)
         {
             var mapping = new Dictionary<ITile, IAsset?>();
-
-            // Brown
             mapping[board.Path[1]] = new Asset("Medan", TypeAsset.RealEstate, 60);
             mapping[board.Path[3]] = new Asset("Palembang", TypeAsset.RealEstate, 60);
-
-            // Light Blue
             mapping[board.Path[6]] = new Asset("Semarang", TypeAsset.RealEstate, 100);
             mapping[board.Path[8]] = new Asset("Surabaya", TypeAsset.RealEstate, 100);
             mapping[board.Path[9]] = new Asset("Makassar", TypeAsset.RealEstate, 120);
 
-            // Pink
             mapping[board.Path[11]] = new Asset("Bandung", TypeAsset.RealEstate, 140);
             mapping[board.Path[13]] = new Asset("Yogyakarta", TypeAsset.RealEstate, 140);
             mapping[board.Path[14]] = new Asset("Solo", TypeAsset.RealEstate, 160);
-
-            // Orange
             mapping[board.Path[16]] = new Asset("Denpasar", TypeAsset.RealEstate, 180);
             mapping[board.Path[18]] = new Asset("Malang", TypeAsset.RealEstate, 180);
             mapping[board.Path[19]] = new Asset("Balikpapan", TypeAsset.RealEstate, 200);
 
-            // Red
             mapping[board.Path[21]] = new Asset("Manado", TypeAsset.RealEstate, 220);
             mapping[board.Path[23]] = new Asset("Pontianak", TypeAsset.RealEstate, 220);
             mapping[board.Path[24]] = new Asset("Batam", TypeAsset.RealEstate, 240);
-
-            // Yellow
             mapping[board.Path[26]] = new Asset("Depok", TypeAsset.RealEstate, 260);
             mapping[board.Path[27]] = new Asset("Tangerang", TypeAsset.RealEstate, 260);
             mapping[board.Path[29]] = new Asset("Bekasi", TypeAsset.RealEstate, 280);
-
-            // Green
             mapping[board.Path[31]] = new Asset("Bogor", TypeAsset.RealEstate, 300);
             mapping[board.Path[32]] = new Asset("Jakarta Selatan", TypeAsset.RealEstate, 300);
             mapping[board.Path[34]] = new Asset("Jakarta Pusat", TypeAsset.RealEstate, 320);
-
-            // Dark Blue
             mapping[board.Path[37]] = new Asset("Jakarta Utara", TypeAsset.RealEstate, 350);
             mapping[board.Path[39]] = new Asset("Jakarta Barat", TypeAsset.RealEstate, 400);
-
-            // Railroads
             mapping[board.Path[5]] = new Asset("Stasiun Gambir", TypeAsset.Railroad, 200);
             mapping[board.Path[15]] = new Asset("Stasiun Pasar Senen", TypeAsset.Railroad, 200);
             mapping[board.Path[25]] = new Asset("Stasiun Manggarai", TypeAsset.Railroad, 200);
             mapping[board.Path[35]] = new Asset("Stasiun Tanah Abang", TypeAsset.Railroad, 200);
-
-            // Utilities
             mapping[board.Path[12]] = new Asset("PLN", TypeAsset.PublicService, 150);
             mapping[board.Path[28]] = new Asset("PDAM", TypeAsset.PublicService, 150);
 

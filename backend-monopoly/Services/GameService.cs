@@ -356,81 +356,85 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        public ServiceResult<bool> PlayerProposeTrade(IPlayer player1, IPlayer player2,
-                                List<IAsset> offer1, int money1,
-                                List<IAsset> offer2, int money2)
+        public ServiceResult<bool> PlayerProposeTrade(
+    IPlayer initiatingPlayer,
+    IPlayer targetPlayer,
+    List<IAsset> assetsOfferedByInitiator,
+    int moneyOfferedByInitiator,
+    List<IAsset> assetsRequestedFromTarget,
+    int moneyRequestedFromTarget)
         {
-            foreach (IAsset asset in offer1)
+            foreach (IAsset asset in assetsOfferedByInitiator)
             {
-                if (asset.Owner != player1)
+                if (asset.Owner != initiatingPlayer)
                 {
                     return ServiceResult<bool>.Fail(
-                        new ServiceError(ErrorType.Validation, $"{player1.Name} tidak memiliki {asset.Name}.")
+                        new ServiceError(ErrorType.Validation, $"{initiatingPlayer.Name} tidak memiliki {asset.Name}.")
                     );
                 }
             }
 
-            foreach (IAsset asset in offer2)
+            foreach (IAsset asset in assetsRequestedFromTarget)
             {
-                if (asset.Owner != player2)
+                if (asset.Owner != targetPlayer)
                 {
                     return ServiceResult<bool>.Fail(
-                        new ServiceError(ErrorType.Validation, $"{player2.Name} tidak memiliki {asset.Name}.")
+                        new ServiceError(ErrorType.Validation, $"{targetPlayer.Name} tidak memiliki {asset.Name}.")
                     );
                 }
             }
 
-            ServiceResult<int> player1MoneyResult = GetPlayerMoney(player1);
-            ServiceResult<int> player2MoneyResult = GetPlayerMoney(player2);
+            ServiceResult<int> initiatingPlayerMoneyResult = GetPlayerMoney(initiatingPlayer);
+            ServiceResult<int> targetPlayerMoneyResult = GetPlayerMoney(targetPlayer);
 
-            if (!player1MoneyResult.IsSuccess)
-                return ServiceResult<bool>.Fail(player1MoneyResult.Error!);
+            if (!initiatingPlayerMoneyResult.IsSuccess)
+                return ServiceResult<bool>.Fail(initiatingPlayerMoneyResult.Error!);
 
-            if (!player2MoneyResult.IsSuccess)
-                return ServiceResult<bool>.Fail(player2MoneyResult.Error!);
+            if (!targetPlayerMoneyResult.IsSuccess)
+                return ServiceResult<bool>.Fail(targetPlayerMoneyResult.Error!);
 
-            if (player1MoneyResult.Data < money1)
+            if (initiatingPlayerMoneyResult.Data < moneyOfferedByInitiator)
             {
                 return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, $"{player1.Name} tidak punya ${money1}.")
+                    new ServiceError(ErrorType.Validation, $"{initiatingPlayer.Name} tidak punya ${moneyOfferedByInitiator}.")
                 );
             }
 
-            if (player2MoneyResult.Data < money2)
+            if (targetPlayerMoneyResult.Data < moneyRequestedFromTarget)
             {
                 return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, $"{player2.Name} tidak punya ${money2}.")
+                    new ServiceError(ErrorType.Validation, $"{targetPlayer.Name} tidak punya ${moneyRequestedFromTarget}.")
                 );
             }
 
-            foreach (IAsset asset in offer1)
+            foreach (IAsset asset in assetsOfferedByInitiator)
             {
-                asset.Owner = player2;
-                player1.Assets.Remove(asset);
-                PlayerAssets[player1].Remove(asset);
-                player2.Assets.Add(asset);
-                PlayerAssets[player2].Add(asset);
+                asset.Owner = targetPlayer;
+                initiatingPlayer.Assets.Remove(asset);
+                PlayerAssets[initiatingPlayer].Remove(asset);
+                targetPlayer.Assets.Add(asset);
+                PlayerAssets[targetPlayer].Add(asset);
             }
 
-            foreach (IAsset asset in offer2)
+            foreach (IAsset asset in assetsRequestedFromTarget)
             {
-                asset.Owner = player1;
-                player2.Assets.Remove(asset);
-                PlayerAssets[player2].Remove(asset);
-                player1.Assets.Add(asset);
-                PlayerAssets[player1].Add(asset);
+                asset.Owner = initiatingPlayer;
+                targetPlayer.Assets.Remove(asset);
+                PlayerAssets[targetPlayer].Remove(asset);
+                initiatingPlayer.Assets.Add(asset);
+                PlayerAssets[initiatingPlayer].Add(asset);
             }
 
-            if (money1 > 0)
+            if (moneyOfferedByInitiator > 0)
             {
-                SubtractMoney(player1, money1);
-                AddMoney(player2, money1);
+                SubtractMoney(initiatingPlayer, moneyOfferedByInitiator);
+                AddMoney(targetPlayer, moneyOfferedByInitiator);
             }
 
-            if (money2 > 0)
+            if (moneyRequestedFromTarget > 0)
             {
-                SubtractMoney(player2, money2);
-                AddMoney(player1, money2);
+                SubtractMoney(targetPlayer, moneyRequestedFromTarget);
+                AddMoney(initiatingPlayer, moneyRequestedFromTarget);
             }
 
             return ServiceResult<bool>.Success(true);
@@ -984,49 +988,56 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<TradeResult> ExecuteTrade(TradeRequest request)
         {
-            IPlayer? player1 = Players.FirstOrDefault(p => p.Name == request.PlayerName);
-            IPlayer? player2 = Players.FirstOrDefault(p => p.Name == request.TargetPlayerName);
+            IPlayer? initiatingPlayer = Players.FirstOrDefault(p => p.Name == request.PlayerName);
+            IPlayer? targetPlayer = Players.FirstOrDefault(p => p.Name == request.TargetPlayerName);
 
-            if (player1 == null)
+            if (initiatingPlayer == null)
                 return ServiceResult<TradeResult>.Fail(
                     new ServiceError(ErrorType.Validation, $"Player '{request.PlayerName}' not found.")
                 );
 
-            if (player2 == null)
+            if (targetPlayer == null)
                 return ServiceResult<TradeResult>.Fail(
                     new ServiceError(ErrorType.Validation, $"Target player '{request.TargetPlayerName}' not found.")
                 );
 
-            List<IAsset> offer1 = new List<IAsset>();
-            foreach (string propName in request.OfferedProperties)
+            List<IAsset> assetsOfferedByInitiator = new List<IAsset>();
+            foreach (string propertyName in request.OfferedProperties)
             {
-                IAsset? asset = player1.Assets.FirstOrDefault(a => a.Name == propName);
+                IAsset? asset = initiatingPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
                 if (asset == null)
                     return ServiceResult<TradeResult>.Fail(
-                        new ServiceError(ErrorType.Validation, $"Property '{propName}' not found in {player1.Name}'s assets.")
+                        new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in {initiatingPlayer.Name}'s assets.")
                     );
-                offer1.Add(asset);
+                assetsOfferedByInitiator.Add(asset);
             }
 
-            List<IAsset> offer2 = new List<IAsset>();
-            foreach (string propName in request.RequestedProperties)
+            List<IAsset> assetsRequestedFromTarget = new List<IAsset>();
+            foreach (string propertyName in request.RequestedProperties)
             {
-                IAsset? asset = player2.Assets.FirstOrDefault(a => a.Name == propName);
+                IAsset? asset = targetPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
                 if (asset == null)
                     return ServiceResult<TradeResult>.Fail(
-                        new ServiceError(ErrorType.Validation, $"Property '{propName}' not found in {player2.Name}'s assets.")
+                        new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in {targetPlayer.Name}'s assets.")
                     );
-                offer2.Add(asset);
+                assetsRequestedFromTarget.Add(asset);
             }
 
-            ServiceResult<bool> tradeResult = PlayerProposeTrade(player1, player2, offer1, request.OfferedMoney, offer2, request.RequestedMoney);
+            ServiceResult<bool> tradeResult = PlayerProposeTrade(
+                initiatingPlayer: initiatingPlayer,
+                targetPlayer: targetPlayer,
+                assetsOfferedByInitiator: assetsOfferedByInitiator,
+                moneyOfferedByInitiator: request.OfferedMoney,
+                assetsRequestedFromTarget: assetsRequestedFromTarget,
+                moneyRequestedFromTarget: request.RequestedMoney
+            );
 
             TradeResult result = new TradeResult
             {
                 Success = tradeResult.IsSuccess,
                 Message = tradeResult.IsSuccess ? "Trade completed successfully" : tradeResult.Error?.Message ?? "Trade failed",
-                Player1Name = player1.Name,
-                Player2Name = player2.Name
+                Player1Name = initiatingPlayer.Name,
+                Player2Name = targetPlayer.Name
             };
 
             return tradeResult.IsSuccess
