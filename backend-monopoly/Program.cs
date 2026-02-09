@@ -15,7 +15,8 @@ builder.Services.AddCors(options =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .WithExposedHeaders("Access-Control-Allow-Private-Network");
     });
 });
 
@@ -32,6 +33,15 @@ if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Headers.ContainsKey("Access-Control-Request-Private-Network"))
+    {
+        context.Response.Headers.Add("Access-Control-Allow-Private-Network", "true");
+    }
+    await next();
+});
 
 app.UseCors("AllowReactApp");
 
