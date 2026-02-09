@@ -7,6 +7,7 @@ import { GameSetup } from './components/Game/GameSetup';
 import { GameOver } from './components/Game/GameOver';
 import { ForceGameOverModal } from './components/Game/ForceGameOverModal';
 import { NewGameModal } from './components/Game/NewGameModal';
+import { AudioController } from './components/Audio/AudioController';
 // import { PropertyActionModal } from './components/Actions/PropertyActionModal'; // Not needed - now in ActionPanel
 import { Board } from './components/Board/Board';
 import { PlayerCard } from './components/Player/PlayerCard';
@@ -269,6 +270,7 @@ function App() {
       <>
         <Toaster position="top-right" />
         <GameSetup onGameCreated={handleGameCreated} />
+        <AudioController />
       </>
     );
   }
@@ -279,6 +281,7 @@ function App() {
       <>
         <Toaster position="top-right" />
         <GameOver gameState={gameState} onNewGame={handleNewGame} />
+        <AudioController />
       </>
     );
   }
@@ -390,6 +393,9 @@ function App() {
             onCancel={() => setShowNewGameModal(false)}
           />
         )}
+
+        {/* Audio Controller */}
+        <AudioController />
       </div>
     );
   }

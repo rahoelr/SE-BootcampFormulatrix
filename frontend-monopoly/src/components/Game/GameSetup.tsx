@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { gameApi } from '../../services/api';
 import toast from 'react-hot-toast';
+import diceLogo from '../../assets/dice_logo.png';
+import monopolyBg from '../../assets/monopoly_bg.webp';
 
 interface GameSetupProps {
   onGameCreated: () => void;
@@ -12,6 +14,46 @@ export function GameSetup({ onGameCreated, onReset, hasActiveGame }: GameSetupPr
   const [numPlayers, setNumPlayers] = useState(2);
   const [playerNames, setPlayerNames] = useState<string[]>(['', '']);
   const [loading, setLoading] = useState(false);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  // Loading screen effect
+  useEffect(() => {
+    const loadingMessages = [
+      'Loading game assets...',
+      'Preparing the board...',
+      'Shuffling Chance cards...',
+      'Counting money...',
+      'Setting up properties...',
+      'Almost ready...'
+    ];
+    
+    let currentProgress = 0;
+    const interval = setInterval(() => {
+      currentProgress += Math.random() * 3 + 1;
+      if (currentProgress >= 100) {
+        currentProgress = 100;
+        setLoadingProgress(100);
+        setTimeout(() => {
+          setIsPageLoading(false);
+        }, 500);
+        clearInterval(interval);
+      } else {
+        setLoadingProgress(Math.floor(currentProgress));
+      }
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const getLoadingMessage = () => {
+    if (loadingProgress < 20) return 'Loading game assets...';
+    if (loadingProgress < 40) return 'Preparing the board...';
+    if (loadingProgress < 60) return 'Shuffling Chance cards...';
+    if (loadingProgress < 80) return 'Counting money...';
+    if (loadingProgress < 95) return 'Setting up properties...';
+    return 'Almost ready!';
+  };
 
   const updatePlayerName = (index: number, name: string) => {
     const newNames = [...playerNames];
@@ -71,11 +113,109 @@ export function GameSetup({ onGameCreated, onReset, hasActiveGame }: GameSetupPr
     }
   };
 
+  // Loading Screen
+  if (isPageLoading) {
+    return (
+      <div 
+        className="min-h-screen flex flex-col items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${monopolyBg})` }}
+      >
+        <div className="bg-white/95 backdrop-blur-sm border-4 border-black shadow-brutal-lg p-8 max-w-md w-full text-center">
+          {/* Animated Dice */}
+          <div className="flex justify-center gap-4 mb-6">
+            <img 
+              src={diceLogo} 
+              alt="Dice" 
+              className="w-16 h-16 animate-bounce" 
+              style={{ animationDelay: '0ms' }}
+            />
+            <img 
+              src={diceLogo} 
+              alt="Dice" 
+              className="w-16 h-16 animate-bounce" 
+              style={{ animationDelay: '150ms' }}
+            />
+            <img 
+              src={diceLogo} 
+              alt="Dice" 
+              className="w-16 h-16 animate-bounce" 
+              style={{ animationDelay: '300ms' }}
+            />
+          </div>
+
+          {/* Title */}
+          <h1 className="text-4xl font-display font-black text-black uppercase tracking-tight mb-4">
+            Loading Monopoly
+          </h1>
+
+          {/* Loading Message */}
+          <p className="text-lg font-body text-black mb-4 font-semibold animate-pulse">
+            {getLoadingMessage()}
+          </p>
+
+          {/* Progress Bar Container */}
+          <div className="relative w-full h-8 bg-gray-200 border-4 border-black overflow-hidden shadow-brutal">
+            {/* Progress Bar Fill */}
+            <div 
+              className="h-full transition-all duration-300 ease-out relative overflow-hidden"
+              style={{ 
+                width: `${loadingProgress}%`,
+                background: 'linear-gradient(90deg, #22c55e 0%, #16a34a 50%, #22c55e 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s infinite'
+              }}
+            >
+              {/* Animated stripes */}
+              <div 
+                className="absolute inset-0 opacity-30"
+                style={{
+                  backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.5) 10px, rgba(255,255,255,0.5) 20px)',
+                  animation: 'moveStripes 0.5s linear infinite'
+                }}
+              />
+            </div>
+            
+            {/* Percentage Text */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="font-display font-black text-black text-lg drop-shadow-sm">
+                {loadingProgress}%
+              </span>
+            </div>
+          </div>
+
+          {/* Fun Facts */}
+          <div className="mt-6 p-3 bg-brutal-yellow border-3 border-black">
+            <p className="text-sm font-body text-black font-semibold">
+              💡 Did you know? Monopoly was first published in 1935!
+            </p>
+          </div>
+        </div>
+
+        {/* CSS Animation Keyframes */}
+        <style>{`
+          @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+          @keyframes moveStripes {
+            0% { transform: translateX(-20px); }
+            100% { transform: translateX(0); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: `url(${monopolyBg})` }}
+    >
       <div className="bg-white border-4 border-black shadow-brutal-lg p-8 max-w-md w-full">
-        <h1 className="text-5xl font-display font-black text-center mb-2 text-black uppercase tracking-tight">
-          🎲 Monopoly
+        <h1 className="text-5xl font-display font-black text-center mb-2 text-black uppercase tracking-tight flex items-center justify-center gap-3">
+          <img src={diceLogo} alt="Dice" className="w-12 h-12 animate-bounce" /> 
+          Monopoly
+          <img src={diceLogo} alt="Dice" className="w-12 h-12 animate-bounce" />
         </h1>
         <p className="text-center font-body text-black mb-6 uppercase tracking-wide font-semibold">Create a new game</p>
 
