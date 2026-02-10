@@ -11,12 +11,15 @@ namespace MonopolyBackend.Controllers
     [Route("api/[controller]")]
     public class GameController : ControllerBase
     {
-        private readonly GameService _gameService;
+        private readonly GameServiceManager _gameManager;
         private readonly ILogger<GameController> _logger;
+        private readonly ILogger<GameService> _gameServiceLogger;
 
-        public GameController(GameService gameService, ILO)
+        public GameController(GameServiceManager gameManager, ILogger<GameController> logger, ILogger<GameService> gameServiceLogger)
         {
-            _gameService = gameService;
+            _gameManager = gameManager;
+            _logger = logger;
+            _gameServiceLogger = gameServiceLogger;
         }
 
         [HttpPost("create")]
@@ -24,20 +27,16 @@ namespace MonopolyBackend.Controllers
         {
             if (request.PlayerNames == null || request.PlayerNames.Count < 2 || request.PlayerNames.Count > 4)
             {
+                _logger.LogWarning("Invalid number of players: {PlayerCount}", request.PlayerNames?.Count);
                 return BadRequest(new { error = "Must have 2-4 players" });
             }
 
-            if (request.PlayerNames.Distinct().Count() != request.PlayerNames.Count)
-            {
-                return BadRequest(new { error = "Player names must be unique" });
-            }
-
-            // Note: You may need to implement a method in GameService to initialize/create a new game
-            // or use GameInitializationService separately
-            ServiceResult<GameData> gameStateResult = _gameService.GetGameState();
+            _gameManager.CurrentGame = GameInitializationService.CreateGame(request.PlayerNames, _gameServiceLogger);
+            ServiceResult<GameData> gameStateResult = _gameManager.CurrentGame.GetGameState();
             
             if (!gameStateResult.IsSuccess)
             {
+                _logger.LogWarning("Failed to create game state: {Error}", gameStateResult.Error?.Message);
                 return StatusCode(500, new { error = "Failed to create game state" });
             }
 
@@ -47,12 +46,13 @@ namespace MonopolyBackend.Controllers
         [HttpPost("reset")]
         public ActionResult<ResetResponse> Reset()
         {
-            _gameService.Reset();
+            _gameManager.Reset();
             ResetResponse response = new ResetResponse
             {
                 Success = true,
                 Message = "Game reset successfully"
             };
+            _logger.LogInformation("[Controller Layer] Game has been reset.");
             return Ok(response);
         }
 
@@ -61,8 +61,10 @@ namespace MonopolyBackend.Controllers
         {
             GameStatusResponse response = new GameStatusResponse
             {
-                HasActiveGame = !_gameService.IsGameOver
+                HasActiveGame = _gameManager.HasActiveGame && !_gameManager.CurrentGame.IsGameOver
             };
+
+            _logger.LogInformation("[Controller Layer] Game status = HasActiveGame: {HasActiveGame}", response.HasActiveGame);
             return Ok(response);
         }
 
@@ -70,13 +72,19 @@ namespace MonopolyBackend.Controllers
         public ActionResult<BoardResponse> GetBoardConfiguration()
         {
             BoardResponse boardConfig = GameInitializationService.GetBoardConfiguration();
+            _logger.LogInformation("[Controller Layer] Retrieved board configuration with {TotalTiles} tiles.", boardConfig.TotalTiles);
             return Ok(boardConfig);
         }
 
         [HttpGet("state")]
         public ActionResult<GameStateResponse> GetGameState()
         {
-            ServiceResult<GameData> gameStateResult = _gameService.GetGameState();
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<GameData> gameStateResult = _gameManager.CurrentGame.GetGameState();
             
             if (!gameStateResult.IsSuccess)
             {
@@ -126,15 +134,23 @@ namespace MonopolyBackend.Controllers
                 AvailableActions = gameState.AvailableActions
             };
 
+            _logger.LogInformation("[Controller Layer] Retrieved game state for turn {CurrentTurn}, current player: {CurrentPlayerName}", dto.CurrentTurn, dto.CurrentPlayerName);
+
             return Ok(dto);
         }
 
         [HttpPost("roll-dice")]
         public ActionResult<RollDiceResponse> RollDice([FromBody] PlayerActionRequest request)
         {
-            ServiceResult<RollDiceResult> result = _gameService.ExecuteRollDice(request.PlayerName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<RollDiceResult> result = _gameManager.CurrentGame.ExecuteRollDice(request.PlayerName);
             if (!result.IsSuccess)
             {
+                _logger.LogWarning("[Controller Layer] Roll dice failed for player {PlayerName}: {Error}", request.PlayerName, result.Error?.Message);
                 return MapErrorToResponse(result.Error);
             }
 
@@ -148,13 +164,20 @@ namespace MonopolyBackend.Controllers
                 LandedTile = result.Data.Move.TileName
             };
 
+            _logger.LogInformation("[Controller Layer] Player {PlayerName} rolled dice: {Dice1}, {Dice2} landed on {LandedTile}", request.PlayerName, dto.Dice1, dto.Dice2, dto.LandedTile);
+
             return Ok(dto);
         }
 
         [HttpPost("buy-property")]
         public ActionResult<ActionResultResponse> BuyProperty([FromBody] PlayerActionRequest request)
         {
-            ServiceResult<PropertyActionResult> result = _gameService.ExecuteBuyProperty(request.PlayerName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteBuyProperty(request.PlayerName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -172,7 +195,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("build-house")]
         public ActionResult<ActionResultResponse> BuildHouse([FromBody] BuildHouseRequest request)
         {
-            ServiceResult<PropertyActionResult> result = _gameService.ExecuteBuildHouse(request.PlayerName, request.PropertyName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteBuildHouse(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -190,7 +218,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("sell-house")]
         public ActionResult<ActionResultResponse> SellHouse([FromBody] BuildHouseRequest request)
         {
-            ServiceResult<PropertyActionResult> result = _gameService.ExecuteSellHouse(request.PlayerName, request.PropertyName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteSellHouse(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -208,7 +241,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("mortgage")]
         public ActionResult<ActionResultResponse> Mortgage([FromBody] MortgagePropertyRequest request)
         {
-            ServiceResult<PropertyActionResult> result = _gameService.ExecuteMortgage(request.PlayerName, request.PropertyName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteMortgage(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -226,7 +264,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("unmortgage")]
         public ActionResult<ActionResultResponse> Unmortgage([FromBody] MortgagePropertyRequest request)
         {
-            ServiceResult<PropertyActionResult> result = _gameService.ExecuteUnmortgage(request.PlayerName, request.PropertyName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteUnmortgage(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -244,7 +287,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("trade")]
         public ActionResult<ActionResultResponse> Trade([FromBody] TradeRequest request)
         {
-            ServiceResult<TradeResult> result = _gameService.ExecuteTrade(request);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<TradeResult> result = _gameManager.CurrentGame.ExecuteTrade(request);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -262,7 +310,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("pay-jail-fee")]
         public ActionResult<ActionResultResponse> PayJailFee([FromBody] PlayerActionRequest request)
         {
-            ServiceResult<bool> result = _gameService.ExecutePayJailFee(request.PlayerName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<bool> result = _gameManager.CurrentGame.ExecutePayJailFee(request.PlayerName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -280,7 +333,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("use-jail-card")]
         public ActionResult<ActionResultResponse> UseJailCard([FromBody] PlayerActionRequest request)
         {
-            ServiceResult<bool> result = _gameService.ExecuteUseJailCard(request.PlayerName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<bool> result = _gameManager.CurrentGame.ExecuteUseJailCard(request.PlayerName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -298,7 +356,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("try-roll-doubles")]
         public ActionResult<RollDiceResponse> TryRollDoublesInJail([FromBody] PlayerActionRequest request)
         {
-            ServiceResult<RollDiceResult> result = _gameService.ExecuteTryRollDoublesInJail(request.PlayerName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<RollDiceResult> result = _gameManager.CurrentGame.ExecuteTryRollDoublesInJail(request.PlayerName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -320,7 +383,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("end-turn")]
         public ActionResult<ActionResultResponse> EndTurn([FromBody] PlayerActionRequest request)
         {
-            ServiceResult<bool> result = _gameService.ExecuteEndTurn(request.PlayerName);
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<bool> result = _gameManager.CurrentGame.ExecuteEndTurn(request.PlayerName);
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -329,8 +397,10 @@ namespace MonopolyBackend.Controllers
             ActionResultResponse dto = new ActionResultResponse
             {
                 Success = true,
-                Message = $"Turn ended. Now it's {_gameService.CurrentPlayer.Name}'s turn."
+                Message = $"Turn ended. Now it's {_gameManager.CurrentGame.CurrentPlayer.Name}'s turn."
             };
+
+            _logger.LogInformation("[Controller Layer] Player {PlayerName} ended their turn.", request.PlayerName);
 
             return Ok(dto);
         }
@@ -338,7 +408,12 @@ namespace MonopolyBackend.Controllers
         [HttpPost("force-end")]
         public ActionResult<ForceEndGameResponse> ForceEndGame()
         {
-            ServiceResult<ForceEndGameResult> result = _gameService.ExecuteForceEndGame();
+            if (_gameManager.CurrentGame == null)
+            {
+                return BadRequest(new { error = "No active game. Please create a game first." });
+            }
+
+            ServiceResult<ForceEndGameResult> result = _gameManager.CurrentGame.ExecuteForceEndGame();
             if (!result.IsSuccess)
             {
                 return MapErrorToResponse(result.Error);
@@ -369,7 +444,6 @@ namespace MonopolyBackend.Controllers
             return Ok(dto);
         }
 
-        // Helper method to reduce code duplication for error mapping
         private ActionResult MapErrorToResponse(ServiceError? error)
         {
             return error?.Type switch

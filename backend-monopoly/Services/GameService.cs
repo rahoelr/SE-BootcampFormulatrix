@@ -27,6 +27,7 @@ namespace MonopolyBackend.Services
         private Dictionary<IPlayer, int> _playerJailTurns { get; set; }
         private Dictionary<IPlayer, int> _playerGetOutOfJailCards { get; set; }
         private Dictionary<IPlayer, bool> _hasRolledThisTurn { get; set; }
+        private readonly ILogger<GameService> _logger;
 
         private ServiceResult<IPlayer> ValidatePlayerTurn(string playerName)
         {
@@ -50,7 +51,7 @@ namespace MonopolyBackend.Services
         private const int TAX_AMOUNT = 200;
         private const int LUXURY_TAX = 100;
 
-        public GameService(IBoard board, List<IPlayer> players, List<IDice> dices, IDecks communityChestDeck, IDecks chanceDeck, Dictionary<ITile, IAsset?> tileAssets)
+        public GameService(IBoard board, List<IPlayer> players, List<IDice> dices, IDecks communityChestDeck, IDecks chanceDeck, Dictionary<ITile, IAsset?> tileAssets, ILogger<GameService> logger)
         {
             Board = board;
             Players = players;
@@ -66,6 +67,7 @@ namespace MonopolyBackend.Services
             CurrentTurn = 0;
             IsGameOver = false;
             Winner = null;
+            _logger = logger;
 
             foreach (IPlayer player in Players)
             {
@@ -813,18 +815,25 @@ namespace MonopolyBackend.Services
         {
             ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
             if (!validationResult.IsSuccess)
+            {
+                _logger.LogWarning("RollDice validation failed for player {PlayerName}: {ErrorMessage}", playerName, validationResult.Error?.Message);
                 return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
-
+            }
             if (CurrentPlayer.PlayerState == PlayerStateEnum.InJail)
+            {
+                _logger.LogWarning("Player {PlayerName} attempted to roll dice while in jail.", playerName);
                 return ServiceResult<RollDiceResult>.Fail(
                     new ServiceError(ErrorType.Validation, "Player is in jail. Use jail-specific actions.")
                 );
+            }
 
             if (_hasRolledThisTurn.ContainsKey(CurrentPlayer) && _hasRolledThisTurn[CurrentPlayer])
+            {
+                _logger.LogWarning("[Service Layer] Player {PlayerName} attempted to roll dice more than once this turn.", playerName);
                 return ServiceResult<RollDiceResult>.Fail(
                     new ServiceError(ErrorType.Validation, "You have already rolled this turn.")
                 );
-
+            }
             ServiceResult<DiceRoll> rollResult = RollDices();
             if (!rollResult.IsSuccess || rollResult.Data == null)
                 return ServiceResult<RollDiceResult>.Fail(
@@ -851,7 +860,7 @@ namespace MonopolyBackend.Services
             };
 
             _hasRolledThisTurn[CurrentPlayer] = true;
-
+            _logger.LogInformation("[Service Layer] Player {PlayerName} rolled dice: {Dice1} and {Dice2}, moved to position {NewPosition} ({TileName})", playerName, roll.Dice1, roll.Dice2, CurrentPlayer.PathIndex, CurrentPlayer.CurrentTile?.Name);
             return ServiceResult<RollDiceResult>.Success(result);
         }
 
@@ -881,6 +890,8 @@ namespace MonopolyBackend.Services
                 Message = buyResult.IsSuccess ? $"Successfully bought {asset.Name}" : buyResult.Error?.Message ?? "Failed to buy property"
             };
 
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to buy property {PropertyName}: {ResultMessage}", playerName, asset.Name, result.Message);
+
             return buyResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
                 : ServiceResult<PropertyActionResult>.Fail(buyResult.Error!);
@@ -905,6 +916,8 @@ namespace MonopolyBackend.Services
                 Success = buildResult.IsSuccess,
                 Message = buildResult.IsSuccess ? $"Built house on {propertyName}" : buildResult.Error?.Message ?? "Failed to build house"
             };
+
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to build house on {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
 
             return buildResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
@@ -931,6 +944,7 @@ namespace MonopolyBackend.Services
                 Message = sellResult.IsSuccess ? $"Sold house on {propertyName}" : sellResult.Error?.Message ?? "Failed to sell house"
             };
 
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to sell house on {PropertName}: {ResultMessage}", playerName, propertyName, result.Message);
             return sellResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
                 : ServiceResult<PropertyActionResult>.Fail(sellResult.Error!);
@@ -956,6 +970,8 @@ namespace MonopolyBackend.Services
                 Message = mortgageResult.IsSuccess ? $"Mortgaged {propertyName}" : mortgageResult.Error?.Message ?? "Failed to mortgage"
             };
 
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to mortgage {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
+
             return mortgageResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
                 : ServiceResult<PropertyActionResult>.Fail(mortgageResult.Error!);
@@ -980,6 +996,8 @@ namespace MonopolyBackend.Services
                 Success = unmortgageResult.IsSuccess,
                 Message = unmortgageResult.IsSuccess ? $"Unmortgaged {propertyName}" : unmortgageResult.Error?.Message ?? "Failed to unmortgage"
             };
+
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to unmortgage {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
 
             return unmortgageResult.IsSuccess
                 ? ServiceResult<PropertyActionResult>.Success(result)
@@ -1133,6 +1151,8 @@ namespace MonopolyBackend.Services
                 AllProperties = propertyData,
                 AvailableActions = GetAvailableActionsForCurrentPlayer()
             };
+
+            _logger.LogInformation("[Service Layer] Retrieved game state for player {PlayerName} and Properties count {PropertiesCount}", CurrentPlayer.Name, propertyData.Count);
 
             return ServiceResult<GameData>.Success(gameData);
         }
@@ -1310,35 +1330,9 @@ namespace MonopolyBackend.Services
                 Rankings = rankings
             };
 
+            _logger.LogInformation("[Service Layer] Game ended forcefully. Winner: {WinnerName} after {TotalTurns} turns.", winner.Name, CurrentTurn);
+
             return ServiceResult<ForceEndGameResult>.Success(result);
-        }
-
-        public void Reset()
-        {
-            foreach (IPlayer player in Players)
-            {
-                player.PathIndex = 0;
-                player.PlayerState = PlayerStateEnum.Normal;
-                PlayerAssets[player] = new List<IAsset>();
-                PlayerMoney[player] = new List<IMoney> { new Money(1500) };
-                _playerJailTurns[player] = 0;
-                _playerGetOutOfJailCards[player] = 0;
-                _hasRolledThisTurn[player] = false;
-            }
-
-            foreach (var tile in TileAssets.Keys.ToList())
-            {
-                if (TileAssets[tile] != null)
-                {
-                    TileAssets[tile]!.Owner = null;
-                    TileAssets[tile]!.AmountHouse = 0;
-                    TileAssets[tile]!.AssetCondition = AssetCondition.Normal;
-                }
-            }
-
-            CurrentTurn = 0;
-            IsGameOver = false;
-            Winner = null;
         }
 
     }

@@ -8,7 +8,7 @@ namespace MonopolyBackend.Services
 {
     public static class GameInitializationService
     {
-        public static GameService CreateGame(List<string> playerNames)
+        public static GameService CreateGame(List<string> playerNames, ILogger<GameService> logger)
         {
             var board = CreateSimpleBoard();
             var players = CreatePlayers(playerNames);
@@ -23,8 +23,11 @@ namespace MonopolyBackend.Services
                 dices,
                 communityChestDeck,
                 chanceDeck,
-                tileAssets
+                tileAssets,
+                logger
             );
+
+            logger.LogInformation("Game created with {PlayerCount} players.", players.Count);
 
             return gameService;
         }

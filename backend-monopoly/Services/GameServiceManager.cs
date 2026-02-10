@@ -1,20 +1,22 @@
-// namespace MonopolyBackend.Services
-// {
-//     public class GameServiceManager
-//     {
-//         private GameService? _currentGame;
+using Serilog;
 
-//         public GameService? CurrentGame
-//         {
-//             get => _currentGame;
-//             set => _currentGame = value;
-//         }
+namespace MonopolyBackend.Services
+{
+    public class GameServiceManager
+    {
+        private GameService? _currentGame;
 
-//         public bool HasActiveGame => _currentGame != null;
+        public GameService? CurrentGame
+        {
+            get => _currentGame;
+            set => _currentGame = value;
+        }
 
-//         public void Reset()
-//         {
-//             _currentGame = null;
-//         }
-//     }
-// }
+        public bool HasActiveGame => _currentGame != null;
+
+        public void Reset()
+        {
+            _currentGame = null;
+        }
+    }
+}
