@@ -12,6 +12,8 @@ namespace MonopolyBackend.Services
 
     public class GameService
     {
+        #region Properties & Fields
+
         public IBoard Board { get; }
         public List<IPlayer> Players { get; set; }
         public List<IDice> Dices { get; set; }
@@ -29,27 +31,19 @@ namespace MonopolyBackend.Services
         private Dictionary<IPlayer, bool> _hasRolledThisTurn { get; set; }
         private readonly ILogger<GameService> _logger;
 
-        private ServiceResult<IPlayer> ValidatePlayerTurn(string playerName)
-        {
-            IPlayer? player = Players.FirstOrDefault(p => p.Name == playerName);
-            if (player == null)
-                return ServiceResult<IPlayer>.Fail(
-                    new ServiceError(ErrorType.Validation, $"Player '{playerName}' not found.")
-                );
+        #endregion
 
-            if (CurrentPlayer != player)
-                return ServiceResult<IPlayer>.Fail(
-                    new ServiceError(ErrorType.Validation, $"It's not {playerName}'s turn. Current player is {CurrentPlayer.Name}.")
-                );
-
-            return ServiceResult<IPlayer>.Success(player);
-        }
+        #region Constants
 
         private const int GO_SALARY = 200;
         private const int JAIL_POSITION = 10;
         private const int JAIL_FEE = 50;
         private const int TAX_AMOUNT = 200;
         private const int LUXURY_TAX = 100;
+
+        #endregion
+
+        #region Constructor
 
         public GameService(IBoard board, List<IPlayer> players, List<IDice> dices, IDecks communityChestDeck, IDecks chanceDeck, Dictionary<ITile, IAsset?> tileAssets, ILogger<GameService> logger)
         {
@@ -79,6 +73,10 @@ namespace MonopolyBackend.Services
             }
         }
 
+        #endregion
+
+        #region Core Game Flow
+
         public void NextTurn()
         {
             do
@@ -95,6 +93,96 @@ namespace MonopolyBackend.Services
             }
 
             _hasRolledThisTurn[CurrentPlayer] = false;
+        }
+
+        public ServiceResult<bool> ExecuteEndTurn(string playerName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<bool>.Fail(validationResult.Error!);
+
+            if (!_hasRolledThisTurn.ContainsKey(CurrentPlayer) || !_hasRolledThisTurn[CurrentPlayer])
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "You must roll dice before ending turn.")
+                );
+
+            NextTurn();
+            return ServiceResult<bool>.Success(true);
+        }
+
+        public ServiceResult<ForceEndGameResult> ExecuteForceEndGame()
+        {
+            if (IsGameOver)
+                return ServiceResult<ForceEndGameResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Game is already over.")
+                );
+
+            List<PlayerRanking> rankings = new List<PlayerRanking>();
+
+            foreach (IPlayer player in Players)
+            {
+                ServiceResult<int> wealthResult = CalculatePlayerTotalWealth(player);
+                ServiceResult<int> moneyResult = GetPlayerMoney(player);
+                ServiceResult<int> assetsResult = CalculatePlayerTotalAssetsValue(player);
+
+                rankings.Add(new PlayerRanking
+                {
+                    PlayerName = player.Name,
+                    TotalWealth = wealthResult.Data,
+                    Cash = moneyResult.Data,
+                    AssetsValue = assetsResult.Data,
+                    PropertyCount = player.Assets.Count,
+                    HouseCount = player.Assets.Sum(a => a.AmountHouse)
+                });
+            }
+
+            rankings = rankings.OrderByDescending(r => r.TotalWealth).ToList();
+
+            for (int i = 0; i < rankings.Count; i++)
+            {
+                rankings[i].Rank = i + 1;
+            }
+
+            IPlayer winner = Players.First(p => p.Name == rankings[0].PlayerName);
+            IsGameOver = true;
+            Winner = winner;
+
+            ForceEndGameResult result = new ForceEndGameResult
+            {
+                IsGameOver = true,
+                WinnerName = winner.Name,
+                TotalTurns = CurrentTurn,
+                Rankings = rankings
+            };
+
+            _logger.LogInformation("[Service Layer] Game ended forcefully. Winner: {WinnerName} after {TotalTurns} turns.", winner.Name, CurrentTurn);
+
+            return ServiceResult<ForceEndGameResult>.Success(result);
+        }
+
+        #endregion
+
+        #region Player Validation & Info
+
+        private ServiceResult<IPlayer> ValidatePlayerTurn(string playerName)
+        {
+            IPlayer? player = Players.FirstOrDefault(p => p.Name == playerName);
+            if (player == null)
+                return ServiceResult<IPlayer>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Player '{playerName}' not found.")
+                );
+
+            if (CurrentPlayer != player)
+                return ServiceResult<IPlayer>.Fail(
+                    new ServiceError(ErrorType.Validation, $"It's not {playerName}'s turn. Current player is {CurrentPlayer.Name}.")
+                );
+
+            return ServiceResult<IPlayer>.Success(player);
+        }
+
+        public List<IPlayer> GetActivePlayers()
+        {
+            return Players.Where(p => p.PlayerState != PlayerStateEnum.Bankrupt).ToList();
         }
 
         public ServiceResult<int> GetPlayerMoney(IPlayer player)
@@ -115,29 +203,169 @@ namespace MonopolyBackend.Services
             return ServiceResult<int>.Success(getPlayerMoneyResult);
         }
 
-        public List<IPlayer> GetActivePlayers()
+        public ServiceResult<int> GetJailTurns(IPlayer player)
         {
-            return Players.Where(p => p.PlayerState != PlayerStateEnum.Bankrupt).ToList();
+            if (player == null)
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
+                );
+
+            int result = _playerJailTurns.ContainsKey(player) ? _playerJailTurns[player] : 0;
+            return ServiceResult<int>.Success(result);
         }
 
-        public void GetAndApplyDeck(IDecks deck)
+        public ServiceResult<bool> HasGetOutOfJailCard(IPlayer player)
         {
-            ServiceResult<ICard> cardResult = DrawCardFromDeck(deck);
-            if (!cardResult.IsSuccess || cardResult.Data == null)
+            if (player == null)
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
+                );
+            
+            bool result = _playerGetOutOfJailCards.ContainsKey(player) && 
+                          _playerGetOutOfJailCards[player] > 0;
+            return ServiceResult<bool>.Success(result);
+        }
+
+        #endregion
+
+        #region Dice Rolling
+
+        public ServiceResult<DiceRoll> RollDices()
+        {
+            Random rand = new Random();
+            int dice1 = rand.Next(1, 7);
+            int dice2 = rand.Next(1, 7);
+
+            DiceRoll result = new DiceRoll
             {
-                return;
+                Dice1 = dice1,
+                Dice2 = dice2
+            };
+
+            return ServiceResult<DiceRoll>.Success(result);
+        }
+
+        public ServiceResult<RollDiceResult> ExecuteRollDice(string playerName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+            {
+                _logger.LogWarning("RollDice validation failed for player {PlayerName}: {ErrorMessage}", playerName, validationResult.Error?.Message);
+                return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
+            }
+            if (CurrentPlayer.PlayerState == PlayerStateEnum.InJail)
+            {
+                _logger.LogWarning("Player {PlayerName} attempted to roll dice while in jail.", playerName);
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player is in jail. Use jail-specific actions.")
+                );
             }
 
-            ApplyCardEffect(cardResult.Data);
+            if (_hasRolledThisTurn.ContainsKey(CurrentPlayer) && _hasRolledThisTurn[CurrentPlayer])
+            {
+                _logger.LogWarning("[Service Layer] Player {PlayerName} attempted to roll dice more than once this turn.", playerName);
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "You have already rolled this turn.")
+                );
+            }
+            ServiceResult<DiceRoll> rollResult = RollDices();
+            if (!rollResult.IsSuccess || rollResult.Data == null)
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Failed to roll dice.")
+                );
+
+            DiceRoll roll = rollResult.Data;
+
+            ServiceResult<ITile> moveResult = MovePlayer(roll.Total);
+            if (!moveResult.IsSuccess)
+                return ServiceResult<RollDiceResult>.Fail(moveResult.Error!);
+
+            OnLand();
+
+            RollDiceResult result = new RollDiceResult
+            {
+                Roll = roll,
+                Move = new MoveResult
+                {
+                    NewPosition = CurrentPlayer.PathIndex,
+                    TileName = CurrentPlayer.CurrentTile?.Name ?? "",
+                    TileType = CurrentPlayer.CurrentTile?.TilesType.ToString() ?? ""
+                }
+            };
+
+            _hasRolledThisTurn[CurrentPlayer] = true;
+            _logger.LogInformation("[Service Layer] Player {PlayerName} rolled dice: {Dice1} and {Dice2}, moved to position {NewPosition} ({TileName})", playerName, roll.Dice1, roll.Dice2, CurrentPlayer.PathIndex, CurrentPlayer.CurrentTile?.Name);
+            return ServiceResult<RollDiceResult>.Success(result);
         }
 
-        public void SendToJail()
+        public ServiceResult<bool> TryRollDoublesInJail()
         {
-            CurrentPlayer.PathIndex = JAIL_POSITION;
-            CurrentPlayer.CurrentTile = Board.Path[JAIL_POSITION];
-            CurrentPlayer.PlayerState = PlayerStateEnum.InJail;
-            _playerJailTurns[CurrentPlayer] = 0;
+            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player is not in jail.")
+                );
+
+            ServiceResult<DiceRoll> rollResult = RollDices();
+            if (!rollResult.IsSuccess || rollResult.Data == null)
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Failed to roll dice.")
+                );
+
+            DiceRoll diceData = rollResult.Data;
+
+            if (diceData.IsDouble)
+            {
+                CurrentPlayer.PlayerState = PlayerStateEnum.Normal;
+                _playerJailTurns[CurrentPlayer] = 0;
+
+                MovePlayer(diceData.Total);
+                OnLand();
+                return ServiceResult<bool>.Success(true);
+            }
+            else
+            {
+                return ServiceResult<bool>.Success(false);
+            }
         }
+
+        public ServiceResult<RollDiceResult> ExecuteTryRollDoublesInJail(string playerName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
+
+            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player is not in jail.")
+                );
+
+            ServiceResult<DiceRoll> rollResult = RollDices();
+            if (!rollResult.IsSuccess || rollResult.Data == null)
+                return ServiceResult<RollDiceResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Failed to roll dice.")
+                );
+
+            DiceRoll roll = rollResult.Data;
+
+            ServiceResult<bool> doubleResult = TryRollDoublesInJail();
+
+            RollDiceResult result = new RollDiceResult
+            {
+                Roll = roll,
+                Move = new MoveResult
+                {
+                    NewPosition = CurrentPlayer.PathIndex,
+                    TileName = CurrentPlayer.CurrentTile?.Name ?? "Jail",
+                    TileType = CurrentPlayer.CurrentTile?.TilesType.ToString() ?? "Special"
+                }
+            };
+
+            return ServiceResult<RollDiceResult>.Success(result);
+        }
+
+        #endregion
+
+        #region Movement
 
         public ServiceResult<ITile> MovePlayer(int steps)
         {
@@ -155,42 +383,110 @@ namespace MonopolyBackend.Services
             return ServiceResult<ITile>.Success(CurrentPlayer.CurrentTile);
         }
 
-        public void ApplyCardEffect(ICard card)
+        public void MovePlayerToPosition(int position)
         {
-            switch (card.CardEffect)
+            int oldPosition = CurrentPlayer.PathIndex;
+
+            if (position < oldPosition)
             {
-                case CardEffect.ReceiveMoney:
-                    AddMoney(CurrentPlayer, card.Value);
+                AddMoney(CurrentPlayer, GO_SALARY);
+            }
+
+            CurrentPlayer.PathIndex = position;
+            CurrentPlayer.CurrentTile = Board.Path[position];
+        }
+
+        public void OnLand()
+        {
+            ITile? tile = CurrentPlayer.CurrentTile;
+            if (tile == null) return;
+
+            switch (tile.EffectType)
+            {
+                case EffectType.Go:
                     break;
 
-                case CardEffect.PayMoney:
-                    ServiceResult<bool> subtractResult = SubtractMoney(CurrentPlayer, card.Value);
-                    if (subtractResult.IsSuccess)
+                case EffectType.CommunityChest:
+                    GetAndApplyDeck(CommunityChestDeck);
+                    break;
+
+                case EffectType.Chance:
+                    GetAndApplyDeck(ChanceDeck);
+                    break;
+
+                case EffectType.Tax:
+                    int taxAmount = tile.Name.Contains("Mewah") ? LUXURY_TAX : TAX_AMOUNT;
+                    ServiceResult<bool> subtractTaxResult = SubtractMoney(CurrentPlayer, taxAmount);
+                    if (!subtractTaxResult.IsSuccess)
                     {
                         CheckIsBankrupt(CurrentPlayer);
                     }
                     break;
 
-                case CardEffect.GoToJail:
+                case EffectType.GoToJail:
                     SendToJail();
                     break;
 
-                case CardEffect.GetOutJail:
-                    _playerGetOutOfJailCards[CurrentPlayer]++;
+                case EffectType.FreeParking:
                     break;
 
-                case CardEffect.Move:
-                    if (card.Value < 0)
+                case EffectType.Nothing:
+                    IAsset? asset = TileAssets.ContainsKey(tile) ? TileAssets[tile] : null;
+                    if (asset != null || tile.TilesType == TilesType.Property || tile.TilesType == TilesType.Railroad || tile.TilesType == TilesType.Utility)
                     {
-                        MovePlayer(card.Value);
+                        HandlePropertyTile(tile);
                     }
-                    else
-                    {
-                        MovePlayerToPosition(card.Value);
-                    }
-                    OnLand();
                     break;
             }
+        }
+
+        private void HandlePropertyTile(ITile tile)
+        {
+            if (!TileAssets.ContainsKey(tile) || TileAssets[tile] == null)
+            {
+                return;
+            }
+
+            IAsset asset = TileAssets[tile]!;
+
+            if (asset.Owner == null)
+            {
+                return;
+            }
+
+            if (asset.Owner == CurrentPlayer)
+            {
+                return;
+            }
+
+            if (asset.AssetCondition == AssetCondition.Mortgage)
+            {
+                return;
+            }
+
+            int rent = CalculateRent(asset).Data;
+            ServiceResult<bool> subtractResult = SubtractMoney(CurrentPlayer, rent);
+
+            if (subtractResult.IsSuccess)
+            {
+                AddMoney(asset.Owner, rent);
+            }
+            else
+            {
+                CheckIsBankrupt(CurrentPlayer);
+            }
+        }
+
+        #endregion
+
+        #region Jail Management
+
+        public void SendToJail()
+        {
+            CurrentPlayer.PathIndex = JAIL_POSITION;
+            CurrentPlayer.CurrentTile = Board.Path[JAIL_POSITION];
+            CurrentPlayer.PlayerState = PlayerStateEnum.InJail;
+            _playerJailTurns[CurrentPlayer] = 0;
         }
 
         public ServiceResult<bool> HandleJailTurn()
@@ -232,6 +528,16 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
+        public ServiceResult<bool> ExecutePayJailFee(string playerName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<bool>.Fail(validationResult.Error!);
+
+            ServiceResult<bool> payResult = PayJailFee();
+            return payResult;
+        }
+
         public ServiceResult<bool> UseGetOutOfJailCard()
         {
             if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
@@ -252,73 +558,19 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        public ServiceResult<int> GetJailTurns(IPlayer player)
+        public ServiceResult<bool> ExecuteUseJailCard(string playerName)
         {
-            if (player == null)
-                return ServiceResult<int>.Fail(
-                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
-                );
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<bool>.Fail(validationResult.Error!);
 
-            int result = _playerJailTurns.ContainsKey(player) ? _playerJailTurns[player] : 0;
-            return ServiceResult<int>.Success(result);
+            ServiceResult<bool> useCardResult = UseGetOutOfJailCard();
+            return useCardResult;
         }
 
-        public ServiceResult<bool> HasGetOutOfJailCard(IPlayer player)
-        {
-            if (player == null)
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
-                );
-            
-            bool result = _playerGetOutOfJailCards.ContainsKey(player) && 
-                          _playerGetOutOfJailCards[player] > 0;
-            return ServiceResult<bool>.Success(result);
-        }
+        #endregion
 
-        public ServiceResult<DiceRoll> RollDices()
-        {
-            Random rand = new Random();
-            int dice1 = rand.Next(1, 7);
-            int dice2 = rand.Next(1, 7);
-
-            DiceRoll result = new DiceRoll
-            {
-                Dice1 = dice1,
-                Dice2 = dice2
-            };
-
-            return ServiceResult<DiceRoll>.Success(result);
-        }
-
-        public ServiceResult<bool> TryRollDoublesInJail()
-        {
-            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Player is not in jail.")
-                );
-
-            ServiceResult<DiceRoll> rollResult = RollDices();
-            if (!rollResult.IsSuccess || rollResult.Data == null)
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Failed to roll dice.")
-                );
-
-            DiceRoll diceData = rollResult.Data;
-
-            if (diceData.IsDouble)
-            {
-                CurrentPlayer.PlayerState = PlayerStateEnum.Normal;
-                _playerJailTurns[CurrentPlayer] = 0;
-
-                MovePlayer(diceData.Total);
-                OnLand();
-                return ServiceResult<bool>.Success(true);
-            }
-            else
-            {
-                return ServiceResult<bool>.Success(false);
-            }
-        }
+        #region Property Transactions
 
         public ServiceResult<bool> PlayerBuyAsset(IAsset asset)
         {
@@ -341,6 +593,39 @@ namespace MonopolyBackend.Services
             PlayerAssets[CurrentPlayer].Add(asset);
 
             return ServiceResult<bool>.Success(true);
+        }
+
+        public ServiceResult<PropertyActionResult> ExecuteBuyProperty(string playerName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            ITile? tile = CurrentPlayer.CurrentTile;
+            if (tile == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player is not on a valid tile.")
+                );
+
+            if (!TileAssets.ContainsKey(tile) || TileAssets[tile] == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, "This tile has no property to buy.")
+                );
+
+            IAsset asset = TileAssets[tile]!;
+            ServiceResult<bool> buyResult = PlayerBuyAsset(asset);
+
+            PropertyActionResult result = new PropertyActionResult
+            {
+                Success = buyResult.IsSuccess,
+                Message = buyResult.IsSuccess ? $"Successfully bought {asset.Name}" : buyResult.Error?.Message ?? "Failed to buy property"
+            };
+
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to buy property {PropertyName}: {ResultMessage}", playerName, asset.Name, result.Message);
+
+            return buyResult.IsSuccess
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(buyResult.Error!);
         }
 
         public ServiceResult<bool> PlayerAddHouse(IAsset asset)
@@ -379,6 +664,242 @@ namespace MonopolyBackend.Services
             string buildingType = asset.AmountHouse == 5 ? "hotel" : "rumah";
             return ServiceResult<bool>.Success(true);
         }
+
+        public ServiceResult<PropertyActionResult> ExecuteBuildHouse(string playerName, string propertyName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            IAsset? asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+            if (asset == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
+                );
+
+            ServiceResult<bool> buildResult = PlayerAddHouse(asset);
+
+            PropertyActionResult result = new PropertyActionResult
+            {
+                Success = buildResult.IsSuccess,
+                Message = buildResult.IsSuccess ? $"Built house on {propertyName}" : buildResult.Error?.Message ?? "Failed to build house"
+            };
+
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to build house on {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
+
+            return buildResult.IsSuccess
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(buildResult.Error!);
+        }
+
+        public ServiceResult<bool> PlayerSellHouse(IAsset asset)
+        {
+            if (asset.Owner != CurrentPlayer)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Anda tidak memiliki properti ini.")
+                );
+            }
+
+            if (asset.TypeAsset != TypeAsset.RealEstate)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Properti ini tidak memiliki rumah.")
+                );
+            }
+
+            if (asset.AmountHouse <= 0)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Tidak ada rumah untuk dijual.")
+                );
+            }
+
+            int sellPrice = asset.Value / 4;
+            asset.AmountHouse--;
+            AddMoney(CurrentPlayer, sellPrice);
+
+            string buildingType = asset.AmountHouse == 4 ? "hotel" : "rumah";
+            return ServiceResult<bool>.Success(true);
+        }
+
+        public ServiceResult<PropertyActionResult> ExecuteSellHouse(string playerName, string propertyName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            IAsset? asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+            if (asset == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
+                );
+
+            ServiceResult<bool> sellResult = PlayerSellHouse(asset);
+
+            PropertyActionResult result = new PropertyActionResult
+            {
+                Success = sellResult.IsSuccess,
+                Message = sellResult.IsSuccess ? $"Sold house on {propertyName}" : sellResult.Error?.Message ?? "Failed to sell house"
+            };
+
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to sell house on {PropertName}: {ResultMessage}", playerName, propertyName, result.Message);
+            return sellResult.IsSuccess
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(sellResult.Error!);
+        }
+
+        #endregion
+
+        #region Mortgage Management
+
+        public ServiceResult<bool> PlayerMortgageAsset(IPlayer player, IAsset asset)
+        {
+            if (asset.Owner != player)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player does not own this asset.")
+                );
+            }
+
+            if (asset.AssetCondition == AssetCondition.Mortgage)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Asset is already mortgaged.")
+                );
+            }
+
+            if (asset.AmountHouse > 0)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Must sell all houses before mortgaging.")
+                );
+            }
+
+            asset.AssetCondition = AssetCondition.Mortgage;
+            int mortgageValue = GetMortgageValue(asset).Data;
+            AddMoney(player, mortgageValue);
+            return ServiceResult<bool>.Success(true);
+        }
+
+        public ServiceResult<PropertyActionResult> ExecuteMortgage(string playerName, string propertyName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            IAsset? asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+            if (asset == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
+                );
+
+            ServiceResult<bool> mortgageResult = PlayerMortgageAsset(CurrentPlayer, asset);
+
+            PropertyActionResult result = new PropertyActionResult
+            {
+                Success = mortgageResult.IsSuccess,
+                Message = mortgageResult.IsSuccess ? $"Mortgaged {propertyName}" : mortgageResult.Error?.Message ?? "Failed to mortgage"
+            };
+
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to mortgage {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
+
+            return mortgageResult.IsSuccess
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(mortgageResult.Error!);
+        }
+
+        public ServiceResult<bool> PlayerUnmortgageAsset(IPlayer player, IAsset asset)
+        {
+            if (asset.Owner != player)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player does not own this asset.")
+                );
+            }
+
+            if (asset.AssetCondition != AssetCondition.Mortgage)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Asset is not mortgaged.")
+                );
+            }
+
+            int unmortgageValue = GetUnmortgageCost(asset).Data;
+            if (!SubtractMoney(player, unmortgageValue).IsSuccess)
+            {
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Insufficient funds to unmortgage asset.")
+                );
+            }
+
+            asset.AssetCondition = AssetCondition.Normal;
+            return ServiceResult<bool>.Success(true);
+        }
+
+        public ServiceResult<PropertyActionResult> ExecuteUnmortgage(string playerName, string propertyName)
+        {
+            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
+            if (!validationResult.IsSuccess)
+                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
+
+            IAsset? asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+            if (asset == null)
+                return ServiceResult<PropertyActionResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
+                );
+
+            ServiceResult<bool> unmortgageResult = PlayerUnmortgageAsset(CurrentPlayer, asset);
+
+            PropertyActionResult result = new PropertyActionResult
+            {
+                Success = unmortgageResult.IsSuccess,
+                Message = unmortgageResult.IsSuccess ? $"Unmortgaged {propertyName}" : unmortgageResult.Error?.Message ?? "Failed to unmortgage"
+            };
+
+            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to unmortgage {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
+
+            return unmortgageResult.IsSuccess
+                ? ServiceResult<PropertyActionResult>.Success(result)
+                : ServiceResult<PropertyActionResult>.Fail(unmortgageResult.Error!);
+        }
+
+        public ServiceResult<int> GetMortgageValue(IAsset asset)
+        {
+            // Validate asset
+            if (asset == null)
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Asset cannot be null.")
+                );
+            
+            // Calculate mortgage value
+            int mortgageResult = asset.Value / 2;
+            return ServiceResult<int>.Success(mortgageResult);
+        }
+
+        public ServiceResult<int> GetUnmortgageCost(IAsset asset)
+        {
+            // Validate asset directly (for clarity)
+            if (asset == null)
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Asset cannot be null.")
+                );
+            
+            ServiceResult<int> mortgageResult = GetMortgageValue(asset);
+
+            if (!mortgageResult.IsSuccess)
+            {
+                return ServiceResult<int>.Fail(mortgageResult.Error!);
+            }
+
+            int unmortgageCost = (int)(mortgageResult.Data * 1.1);
+
+            return ServiceResult<int>.Success(unmortgageCost);
+        }
+
+        #endregion
+
+        #region Trading
 
         public ServiceResult<bool> PlayerProposeTrade(
     IPlayer initiatingPlayer,
@@ -464,338 +985,68 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        public ServiceResult<bool> PlayerSellHouse(IAsset asset)
+        public ServiceResult<TradeResult> ExecuteTrade(TradeRequest request)
         {
-            if (asset.Owner != CurrentPlayer)
-            {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Anda tidak memiliki properti ini.")
+            IPlayer? initiatingPlayer = Players.FirstOrDefault(p => p.Name == request.PlayerName);
+            IPlayer? targetPlayer = Players.FirstOrDefault(p => p.Name == request.TargetPlayerName);
+
+            if (initiatingPlayer == null)
+                return ServiceResult<TradeResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Player '{request.PlayerName}' not found.")
                 );
-            }
 
-            if (asset.TypeAsset != TypeAsset.RealEstate)
-            {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Properti ini tidak memiliki rumah.")
+            if (targetPlayer == null)
+                return ServiceResult<TradeResult>.Fail(
+                    new ServiceError(ErrorType.Validation, $"Target player '{request.TargetPlayerName}' not found.")
                 );
-            }
 
-            if (asset.AmountHouse <= 0)
+            List<IAsset> assetsOfferedByInitiator = new List<IAsset>();
+            foreach (string propertyName in request.OfferedProperties)
             {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Tidak ada rumah untuk dijual.")
-                );
+                IAsset? asset = initiatingPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+                if (asset == null)
+                    return ServiceResult<TradeResult>.Fail(
+                        new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in {initiatingPlayer.Name}'s assets.")
+                    );
+                assetsOfferedByInitiator.Add(asset);
             }
 
-            int sellPrice = asset.Value / 4;
-            asset.AmountHouse--;
-            AddMoney(CurrentPlayer, sellPrice);
+            List<IAsset> assetsRequestedFromTarget = new List<IAsset>();
+            foreach (string propertyName in request.RequestedProperties)
+            {
+                IAsset? asset = targetPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
+                if (asset == null)
+                    return ServiceResult<TradeResult>.Fail(
+                        new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in {targetPlayer.Name}'s assets.")
+                    );
+                assetsRequestedFromTarget.Add(asset);
+            }
 
-            string buildingType = asset.AmountHouse == 4 ? "hotel" : "rumah";
-            return ServiceResult<bool>.Success(true);
+            ServiceResult<bool> tradeResult = PlayerProposeTrade(
+                initiatingPlayer: initiatingPlayer,
+                targetPlayer: targetPlayer,
+                assetsOfferedByInitiator: assetsOfferedByInitiator,
+                moneyOfferedByInitiator: request.OfferedMoney,
+                assetsRequestedFromTarget: assetsRequestedFromTarget,
+                moneyRequestedFromTarget: request.RequestedMoney
+            );
+
+            TradeResult result = new TradeResult
+            {
+                Success = tradeResult.IsSuccess,
+                Message = tradeResult.IsSuccess ? "Trade completed successfully" : tradeResult.Error?.Message ?? "Trade failed",
+                Player1Name = initiatingPlayer.Name,
+                Player2Name = targetPlayer.Name
+            };
+
+            return tradeResult.IsSuccess
+                ? ServiceResult<TradeResult>.Success(result)
+                : ServiceResult<TradeResult>.Fail(tradeResult.Error!);
         }
 
-        public ServiceResult<bool> PlayerMortgageAsset(IPlayer player, IAsset asset)
-        {
-            if (asset.Owner != player)
-            {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Player does not own this asset.")
-                );
-            }
+        #endregion
 
-            if (asset.AssetCondition == AssetCondition.Mortgage)
-            {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Asset is already mortgaged.")
-                );
-            }
-
-            if (asset.AmountHouse > 0)
-            {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Must sell all houses before mortgaging.")
-                );
-            }
-
-            asset.AssetCondition = AssetCondition.Mortgage;
-            int mortgageValue = GetMortgageValue(asset).Data;
-            AddMoney(player, mortgageValue);
-            return ServiceResult<bool>.Success(true);
-        }
-
-        public ServiceResult<bool> PlayerUnmortgageAsset(IPlayer player, IAsset asset)
-        {
-            if (asset.Owner != player)
-            {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Player does not own this asset.")
-                );
-            }
-
-            if (asset.AssetCondition != AssetCondition.Mortgage)
-            {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Asset is not mortgaged.")
-                );
-            }
-
-            int unmortgageValue = GetUnmortgageCost(asset).Data;
-            if (!SubtractMoney(player, unmortgageValue).IsSuccess)
-            {
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "Insufficient funds to unmortgage asset.")
-                );
-            }
-
-            asset.AssetCondition = AssetCondition.Normal;
-            return ServiceResult<bool>.Success(true);
-        }
-
-        public void OnLand()
-        {
-            ITile? tile = CurrentPlayer.CurrentTile;
-            if (tile == null) return;
-
-            switch (tile.EffectType)
-            {
-                case EffectType.Go:
-                    break;
-
-                case EffectType.CommunityChest:
-                    GetAndApplyDeck(CommunityChestDeck);
-                    break;
-
-                case EffectType.Chance:
-                    GetAndApplyDeck(ChanceDeck);
-                    break;
-
-                case EffectType.Tax:
-                    int taxAmount = tile.Name.Contains("Mewah") ? LUXURY_TAX : TAX_AMOUNT;
-                    ServiceResult<bool> subtractTaxResult = SubtractMoney(CurrentPlayer, taxAmount);
-                    if (!subtractTaxResult.IsSuccess)
-                    {
-                        CheckIsBankrupt(CurrentPlayer);
-                    }
-                    break;
-
-                case EffectType.GoToJail:
-                    SendToJail();
-                    break;
-
-                case EffectType.FreeParking:
-                    break;
-
-                case EffectType.Nothing:
-                    IAsset? asset = TileAssets.ContainsKey(tile) ? TileAssets[tile] : null;
-                    if (asset != null || tile.TilesType == TilesType.Property || tile.TilesType == TilesType.Railroad || tile.TilesType == TilesType.Utility)
-                    {
-                        HandlePropertyTile(tile);
-                    }
-                    break;
-            }
-        }
-
-        private void HandlePropertyTile(ITile tile)
-        {
-            if (!TileAssets.ContainsKey(tile) || TileAssets[tile] == null)
-            {
-                return;
-            }
-
-            IAsset asset = TileAssets[tile]!;
-
-            if (asset.Owner == null)
-            {
-                return;
-            }
-
-            if (asset.Owner == CurrentPlayer)
-            {
-                return;
-            }
-
-            if (asset.AssetCondition == AssetCondition.Mortgage)
-            {
-                return;
-            }
-
-            int rent = CalculateRent(asset).Data;
-            ServiceResult<bool> subtractResult = SubtractMoney(CurrentPlayer, rent);
-
-            if (subtractResult.IsSuccess)
-            {
-                AddMoney(asset.Owner, rent);
-            }
-            else
-            {
-                CheckIsBankrupt(CurrentPlayer);
-            }
-        }
-
-        private ServiceResult<int> CountSameTypeAssets(IPlayer owner, IAsset asset)
-        {
-            int result = owner.Assets.Count(a => a.TypeAsset == asset.TypeAsset);
-            return ServiceResult<int>.Success(result);
-        }
-
-        private ServiceResult<int> CalculateRent(IAsset asset)
-        {
-            int sameTypeCount = CountSameTypeAssets(asset.Owner!, asset).Data;
-
-            if (asset.TypeAsset == TypeAsset.PublicService)
-            {
-                int result = sameTypeCount == 1 ? 25 : 50;
-                return ServiceResult<int>.Success(result);
-            }
-
-            if (asset.TypeAsset == TypeAsset.Railroad)
-            {
-                return ServiceResult<int>.Success(sameTypeCount switch
-                {
-                    1 => 25,
-                    2 => 50,
-                    3 => 100,
-                    4 => 200,
-                    _ => 25
-                });
-            }
-
-            int baseRent = asset.Value / 10;
-
-            if (asset.AmountHouse > 0)
-            {
-                return ServiceResult<int>.Success(asset.AmountHouse switch
-                {
-                    1 => baseRent * 5,
-                    2 => baseRent * 15,
-                    3 => baseRent * 45,
-                    4 => baseRent * 80,
-                    5 => baseRent * 100,
-                    _ => baseRent
-                });
-            }
-
-            return ServiceResult<int>.Success(baseRent);
-        }
-
-
-        public void MovePlayerToPosition(int position)
-        {
-            int oldPosition = CurrentPlayer.PathIndex;
-
-            if (position < oldPosition)
-            {
-                AddMoney(CurrentPlayer, GO_SALARY);
-            }
-
-            CurrentPlayer.PathIndex = position;
-            CurrentPlayer.CurrentTile = Board.Path[position];
-        }
-
-        public ServiceResult<ICard> DrawCardFromDeck(IDecks deck)
-        {
-            if (deck == null)
-                throw new ArgumentNullException(nameof(deck));
-
-            List<ICard> cards = deck.Cards;
-            if (cards == null || cards.Count == 0)
-                throw new InvalidOperationException("Deck kosong");
-
-            ICard card = cards[0];
-            cards.RemoveAt(0);
-            cards.Add(card);
-
-            return ServiceResult<ICard>.Success(card);
-        }
-
-
-        public ServiceResult<bool> CheckIsBankrupt(IPlayer player)
-        {
-            ServiceResult<int> totalValue = CalculatePlayerTotalAssetsValue(player);
-            ServiceResult<int> playerMoney = GetPlayerMoney(player);
-
-            if (playerMoney.Data + totalValue.Data < 0)
-            {
-                player.PlayerState = PlayerStateEnum.Bankrupt;
-
-                foreach (IAsset asset in player.Assets.ToList())
-                {
-                    asset.Owner = null;
-                    asset.AmountHouse = 0;
-                    asset.AssetCondition = AssetCondition.Normal;
-                }
-                player.Assets.Clear();
-                PlayerAssets[player].Clear();
-
-                List<IPlayer> activePlayers = GetActivePlayers();
-                if (activePlayers.Count == 1)
-                {
-                    IsGameOver = true;
-                    Winner = activePlayers[0];
-                }
-
-                return ServiceResult<bool>.Success(true);
-            }
-
-            return ServiceResult<bool>.Success(false);
-        }
-
-        public ServiceResult<int> CalculatePlayerTotalAssetsValue(IPlayer player)
-        {
-            int total = 0;
-            foreach (IAsset asset in player.Assets)
-            {
-                if (asset.AssetCondition == AssetCondition.Mortgage)
-                {
-                    ServiceResult<int> mortgageResult = GetMortgageValue(asset);
-                    if (!mortgageResult.IsSuccess)
-                    {
-                        return ServiceResult<int>.Fail(mortgageResult.Error!);
-                    }
-                    total += mortgageResult.Data;
-                }
-                else
-                {
-                    total += asset.Value;
-                }
-                total += asset.AmountHouse * (asset.Value / 2);
-            }
-            return ServiceResult<int>.Success(total);
-        }
-
-        public ServiceResult<int> GetMortgageValue(IAsset asset)
-        {
-            // Validate asset
-            if (asset == null)
-                return ServiceResult<int>.Fail(
-                    new ServiceError(ErrorType.Validation, "Asset cannot be null.")
-                );
-            
-            // Calculate mortgage value
-            int mortgageResult = asset.Value / 2;
-            return ServiceResult<int>.Success(mortgageResult);
-        }
-
-        public ServiceResult<int> GetUnmortgageCost(IAsset asset)
-        {
-            // Validate asset directly (for clarity)
-            if (asset == null)
-                return ServiceResult<int>.Fail(
-                    new ServiceError(ErrorType.Validation, "Asset cannot be null.")
-                );
-            
-            ServiceResult<int> mortgageResult = GetMortgageValue(asset);
-
-            if (!mortgageResult.IsSuccess)
-            {
-                return ServiceResult<int>.Fail(mortgageResult.Error!);
-            }
-
-            int unmortgageCost = (int)(mortgageResult.Data * 1.1);
-
-            return ServiceResult<int>.Success(unmortgageCost);
-        }
+        #region Money Management
 
         public ServiceResult<bool> AddMoney(IPlayer player, int amount)
         {
@@ -868,327 +1119,200 @@ namespace MonopolyBackend.Services
             return ServiceResult<bool>.Success(true);
         }
 
-        public ServiceResult<RollDiceResult> ExecuteRollDice(string playerName)
+        #endregion
+
+        #region Cards & Decks
+
+        public ServiceResult<ICard> DrawCardFromDeck(IDecks deck)
         {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
+            if (deck == null)
+                throw new ArgumentNullException(nameof(deck));
+
+            List<ICard> cards = deck.Cards;
+            if (cards == null || cards.Count == 0)
+                throw new InvalidOperationException("Deck kosong");
+
+            ICard card = cards[0];
+            cards.RemoveAt(0);
+            cards.Add(card);
+
+            return ServiceResult<ICard>.Success(card);
+        }
+
+        public void GetAndApplyDeck(IDecks deck)
+        {
+            ServiceResult<ICard> cardResult = DrawCardFromDeck(deck);
+            if (!cardResult.IsSuccess || cardResult.Data == null)
             {
-                _logger.LogWarning("RollDice validation failed for player {PlayerName}: {ErrorMessage}", playerName, validationResult.Error?.Message);
-                return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
+                return;
             }
-            if (CurrentPlayer.PlayerState == PlayerStateEnum.InJail)
+
+            ApplyCardEffect(cardResult.Data);
+        }
+
+        public void ApplyCardEffect(ICard card)
+        {
+            switch (card.CardEffect)
             {
-                _logger.LogWarning("Player {PlayerName} attempted to roll dice while in jail.", playerName);
-                return ServiceResult<RollDiceResult>.Fail(
-                    new ServiceError(ErrorType.Validation, "Player is in jail. Use jail-specific actions.")
-                );
+                case CardEffect.ReceiveMoney:
+                    AddMoney(CurrentPlayer, card.Value);
+                    break;
+
+                case CardEffect.PayMoney:
+                    ServiceResult<bool> subtractResult = SubtractMoney(CurrentPlayer, card.Value);
+                    if (subtractResult.IsSuccess)
+                    {
+                        CheckIsBankrupt(CurrentPlayer);
+                    }
+                    break;
+
+                case CardEffect.GoToJail:
+                    SendToJail();
+                    break;
+
+                case CardEffect.GetOutJail:
+                    _playerGetOutOfJailCards[CurrentPlayer]++;
+                    break;
+
+                case CardEffect.Move:
+                    if (card.Value < 0)
+                    {
+                        MovePlayer(card.Value);
+                    }
+                    else
+                    {
+                        MovePlayerToPosition(card.Value);
+                    }
+                    OnLand();
+                    break;
+            }
+        }
+
+        #endregion
+
+        #region Rent & Calculations
+
+        private ServiceResult<int> CalculateRent(IAsset asset)
+        {
+            int sameTypeCount = CountSameTypeAssets(asset.Owner!, asset).Data;
+
+            if (asset.TypeAsset == TypeAsset.PublicService)
+            {
+                int result = sameTypeCount == 1 ? 25 : 50;
+                return ServiceResult<int>.Success(result);
             }
 
-            if (_hasRolledThisTurn.ContainsKey(CurrentPlayer) && _hasRolledThisTurn[CurrentPlayer])
+            if (asset.TypeAsset == TypeAsset.Railroad)
             {
-                _logger.LogWarning("[Service Layer] Player {PlayerName} attempted to roll dice more than once this turn.", playerName);
-                return ServiceResult<RollDiceResult>.Fail(
-                    new ServiceError(ErrorType.Validation, "You have already rolled this turn.")
-                );
-            }
-            ServiceResult<DiceRoll> rollResult = RollDices();
-            if (!rollResult.IsSuccess || rollResult.Data == null)
-                return ServiceResult<RollDiceResult>.Fail(
-                    new ServiceError(ErrorType.Validation, "Failed to roll dice.")
-                );
-
-            DiceRoll roll = rollResult.Data;
-
-            ServiceResult<ITile> moveResult = MovePlayer(roll.Total);
-            if (!moveResult.IsSuccess)
-                return ServiceResult<RollDiceResult>.Fail(moveResult.Error!);
-
-            OnLand();
-
-            RollDiceResult result = new RollDiceResult
-            {
-                Roll = roll,
-                Move = new MoveResult
+                return ServiceResult<int>.Success(sameTypeCount switch
                 {
-                    NewPosition = CurrentPlayer.PathIndex,
-                    TileName = CurrentPlayer.CurrentTile?.Name ?? "",
-                    TileType = CurrentPlayer.CurrentTile?.TilesType.ToString() ?? ""
-                }
-            };
-
-            _hasRolledThisTurn[CurrentPlayer] = true;
-            _logger.LogInformation("[Service Layer] Player {PlayerName} rolled dice: {Dice1} and {Dice2}, moved to position {NewPosition} ({TileName})", playerName, roll.Dice1, roll.Dice2, CurrentPlayer.PathIndex, CurrentPlayer.CurrentTile?.Name);
-            return ServiceResult<RollDiceResult>.Success(result);
-        }
-
-        public ServiceResult<PropertyActionResult> ExecuteBuyProperty(string playerName)
-        {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
-
-            ITile? tile = CurrentPlayer.CurrentTile;
-            if (tile == null)
-                return ServiceResult<PropertyActionResult>.Fail(
-                    new ServiceError(ErrorType.Validation, "Player is not on a valid tile.")
-                );
-
-            if (!TileAssets.ContainsKey(tile) || TileAssets[tile] == null)
-                return ServiceResult<PropertyActionResult>.Fail(
-                    new ServiceError(ErrorType.Validation, "This tile has no property to buy.")
-                );
-
-            IAsset asset = TileAssets[tile]!;
-            ServiceResult<bool> buyResult = PlayerBuyAsset(asset);
-
-            PropertyActionResult result = new PropertyActionResult
-            {
-                Success = buyResult.IsSuccess,
-                Message = buyResult.IsSuccess ? $"Successfully bought {asset.Name}" : buyResult.Error?.Message ?? "Failed to buy property"
-            };
-
-            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to buy property {PropertyName}: {ResultMessage}", playerName, asset.Name, result.Message);
-
-            return buyResult.IsSuccess
-                ? ServiceResult<PropertyActionResult>.Success(result)
-                : ServiceResult<PropertyActionResult>.Fail(buyResult.Error!);
-        }
-
-        public ServiceResult<PropertyActionResult> ExecuteBuildHouse(string playerName, string propertyName)
-        {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
-
-            IAsset? asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
-            if (asset == null)
-                return ServiceResult<PropertyActionResult>.Fail(
-                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
-                );
-
-            ServiceResult<bool> buildResult = PlayerAddHouse(asset);
-
-            PropertyActionResult result = new PropertyActionResult
-            {
-                Success = buildResult.IsSuccess,
-                Message = buildResult.IsSuccess ? $"Built house on {propertyName}" : buildResult.Error?.Message ?? "Failed to build house"
-            };
-
-            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to build house on {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
-
-            return buildResult.IsSuccess
-                ? ServiceResult<PropertyActionResult>.Success(result)
-                : ServiceResult<PropertyActionResult>.Fail(buildResult.Error!);
-        }
-
-        public ServiceResult<PropertyActionResult> ExecuteSellHouse(string playerName, string propertyName)
-        {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
-
-            IAsset? asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
-            if (asset == null)
-                return ServiceResult<PropertyActionResult>.Fail(
-                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
-                );
-
-            ServiceResult<bool> sellResult = PlayerSellHouse(asset);
-
-            PropertyActionResult result = new PropertyActionResult
-            {
-                Success = sellResult.IsSuccess,
-                Message = sellResult.IsSuccess ? $"Sold house on {propertyName}" : sellResult.Error?.Message ?? "Failed to sell house"
-            };
-
-            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to sell house on {PropertName}: {ResultMessage}", playerName, propertyName, result.Message);
-            return sellResult.IsSuccess
-                ? ServiceResult<PropertyActionResult>.Success(result)
-                : ServiceResult<PropertyActionResult>.Fail(sellResult.Error!);
-        }
-
-        public ServiceResult<PropertyActionResult> ExecuteMortgage(string playerName, string propertyName)
-        {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
-
-            IAsset? asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
-            if (asset == null)
-                return ServiceResult<PropertyActionResult>.Fail(
-                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
-                );
-
-            ServiceResult<bool> mortgageResult = PlayerMortgageAsset(CurrentPlayer, asset);
-
-            PropertyActionResult result = new PropertyActionResult
-            {
-                Success = mortgageResult.IsSuccess,
-                Message = mortgageResult.IsSuccess ? $"Mortgaged {propertyName}" : mortgageResult.Error?.Message ?? "Failed to mortgage"
-            };
-
-            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to mortgage {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
-
-            return mortgageResult.IsSuccess
-                ? ServiceResult<PropertyActionResult>.Success(result)
-                : ServiceResult<PropertyActionResult>.Fail(mortgageResult.Error!);
-        }
-
-        public ServiceResult<PropertyActionResult> ExecuteUnmortgage(string playerName, string propertyName)
-        {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<PropertyActionResult>.Fail(validationResult.Error!);
-
-            IAsset? asset = CurrentPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
-            if (asset == null)
-                return ServiceResult<PropertyActionResult>.Fail(
-                    new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in player's assets.")
-                );
-
-            ServiceResult<bool> unmortgageResult = PlayerUnmortgageAsset(CurrentPlayer, asset);
-
-            PropertyActionResult result = new PropertyActionResult
-            {
-                Success = unmortgageResult.IsSuccess,
-                Message = unmortgageResult.IsSuccess ? $"Unmortgaged {propertyName}" : unmortgageResult.Error?.Message ?? "Failed to unmortgage"
-            };
-
-            _logger.LogInformation("[Service Layer] Player {PlayerName} attempted to unmortgage {PropertyName}: {ResultMessage}", playerName, propertyName, result.Message);
-
-            return unmortgageResult.IsSuccess
-                ? ServiceResult<PropertyActionResult>.Success(result)
-                : ServiceResult<PropertyActionResult>.Fail(unmortgageResult.Error!);
-        }
-
-        public ServiceResult<TradeResult> ExecuteTrade(TradeRequest request)
-        {
-            IPlayer? initiatingPlayer = Players.FirstOrDefault(p => p.Name == request.PlayerName);
-            IPlayer? targetPlayer = Players.FirstOrDefault(p => p.Name == request.TargetPlayerName);
-
-            if (initiatingPlayer == null)
-                return ServiceResult<TradeResult>.Fail(
-                    new ServiceError(ErrorType.Validation, $"Player '{request.PlayerName}' not found.")
-                );
-
-            if (targetPlayer == null)
-                return ServiceResult<TradeResult>.Fail(
-                    new ServiceError(ErrorType.Validation, $"Target player '{request.TargetPlayerName}' not found.")
-                );
-
-            List<IAsset> assetsOfferedByInitiator = new List<IAsset>();
-            foreach (string propertyName in request.OfferedProperties)
-            {
-                IAsset? asset = initiatingPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
-                if (asset == null)
-                    return ServiceResult<TradeResult>.Fail(
-                        new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in {initiatingPlayer.Name}'s assets.")
-                    );
-                assetsOfferedByInitiator.Add(asset);
+                    1 => 25,
+                    2 => 50,
+                    3 => 100,
+                    4 => 200,
+                    _ => 25
+                });
             }
 
-            List<IAsset> assetsRequestedFromTarget = new List<IAsset>();
-            foreach (string propertyName in request.RequestedProperties)
+            int baseRent = asset.Value / 10;
+
+            if (asset.AmountHouse > 0)
             {
-                IAsset? asset = targetPlayer.Assets.FirstOrDefault(a => a.Name == propertyName);
-                if (asset == null)
-                    return ServiceResult<TradeResult>.Fail(
-                        new ServiceError(ErrorType.Validation, $"Property '{propertyName}' not found in {targetPlayer.Name}'s assets.")
-                    );
-                assetsRequestedFromTarget.Add(asset);
-            }
-
-            ServiceResult<bool> tradeResult = PlayerProposeTrade(
-                initiatingPlayer: initiatingPlayer,
-                targetPlayer: targetPlayer,
-                assetsOfferedByInitiator: assetsOfferedByInitiator,
-                moneyOfferedByInitiator: request.OfferedMoney,
-                assetsRequestedFromTarget: assetsRequestedFromTarget,
-                moneyRequestedFromTarget: request.RequestedMoney
-            );
-
-            TradeResult result = new TradeResult
-            {
-                Success = tradeResult.IsSuccess,
-                Message = tradeResult.IsSuccess ? "Trade completed successfully" : tradeResult.Error?.Message ?? "Trade failed",
-                Player1Name = initiatingPlayer.Name,
-                Player2Name = targetPlayer.Name
-            };
-
-            return tradeResult.IsSuccess
-                ? ServiceResult<TradeResult>.Success(result)
-                : ServiceResult<TradeResult>.Fail(tradeResult.Error!);
-        }
-
-        public ServiceResult<bool> ExecutePayJailFee(string playerName)
-        {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<bool>.Fail(validationResult.Error!);
-
-            ServiceResult<bool> payResult = PayJailFee();
-            return payResult;
-        }
-
-        public ServiceResult<bool> ExecuteUseJailCard(string playerName)
-        {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<bool>.Fail(validationResult.Error!);
-
-            ServiceResult<bool> useCardResult = UseGetOutOfJailCard();
-            return useCardResult;
-        }
-
-        public ServiceResult<RollDiceResult> ExecuteTryRollDoublesInJail(string playerName)
-        {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<RollDiceResult>.Fail(validationResult.Error!);
-
-            if (CurrentPlayer.PlayerState != PlayerStateEnum.InJail)
-                return ServiceResult<RollDiceResult>.Fail(
-                    new ServiceError(ErrorType.Validation, "Player is not in jail.")
-                );
-
-            ServiceResult<DiceRoll> rollResult = RollDices();
-            if (!rollResult.IsSuccess || rollResult.Data == null)
-                return ServiceResult<RollDiceResult>.Fail(
-                    new ServiceError(ErrorType.Validation, "Failed to roll dice.")
-                );
-
-            DiceRoll roll = rollResult.Data;
-
-            ServiceResult<bool> doubleResult = TryRollDoublesInJail();
-
-            RollDiceResult result = new RollDiceResult
-            {
-                Roll = roll,
-                Move = new MoveResult
+                return ServiceResult<int>.Success(asset.AmountHouse switch
                 {
-                    NewPosition = CurrentPlayer.PathIndex,
-                    TileName = CurrentPlayer.CurrentTile?.Name ?? "Jail",
-                    TileType = CurrentPlayer.CurrentTile?.TilesType.ToString() ?? "Special"
-                }
-            };
+                    1 => baseRent * 5,
+                    2 => baseRent * 15,
+                    3 => baseRent * 45,
+                    4 => baseRent * 80,
+                    5 => baseRent * 100,
+                    _ => baseRent
+                });
+            }
 
-            return ServiceResult<RollDiceResult>.Success(result);
+            return ServiceResult<int>.Success(baseRent);
         }
 
-        public ServiceResult<bool> ExecuteEndTurn(string playerName)
+        private ServiceResult<int> CountSameTypeAssets(IPlayer owner, IAsset asset)
         {
-            ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
-            if (!validationResult.IsSuccess)
-                return ServiceResult<bool>.Fail(validationResult.Error!);
-
-            if (!_hasRolledThisTurn.ContainsKey(CurrentPlayer) || !_hasRolledThisTurn[CurrentPlayer])
-                return ServiceResult<bool>.Fail(
-                    new ServiceError(ErrorType.Validation, "You must roll dice before ending turn.")
-                );
-
-            NextTurn();
-            return ServiceResult<bool>.Success(true);
+            int result = owner.Assets.Count(a => a.TypeAsset == asset.TypeAsset);
+            return ServiceResult<int>.Success(result);
         }
+
+        public ServiceResult<int> CalculatePlayerTotalAssetsValue(IPlayer player)
+        {
+            int total = 0;
+            foreach (IAsset asset in player.Assets)
+            {
+                if (asset.AssetCondition == AssetCondition.Mortgage)
+                {
+                    ServiceResult<int> mortgageResult = GetMortgageValue(asset);
+                    if (!mortgageResult.IsSuccess)
+                    {
+                        return ServiceResult<int>.Fail(mortgageResult.Error!);
+                    }
+                    total += mortgageResult.Data;
+                }
+                else
+                {
+                    total += asset.Value;
+                }
+                total += asset.AmountHouse * (asset.Value / 2);
+            }
+            return ServiceResult<int>.Success(total);
+        }
+
+        public ServiceResult<int> CalculatePlayerTotalWealth(IPlayer player)
+        {
+            ServiceResult<int> moneyResult = GetPlayerMoney(player);
+            if (!moneyResult.IsSuccess)
+                return ServiceResult<int>.Fail(moneyResult.Error!);
+
+            ServiceResult<int> assetsResult = CalculatePlayerTotalAssetsValue(player);
+            if (!assetsResult.IsSuccess)
+                return ServiceResult<int>.Fail(assetsResult.Error!);
+
+            int totalWealth = moneyResult.Data + assetsResult.Data;
+            return ServiceResult<int>.Success(totalWealth);
+        }
+
+        #endregion
+
+        #region Bankruptcy
+
+        public ServiceResult<bool> CheckIsBankrupt(IPlayer player)
+        {
+            ServiceResult<int> totalValue = CalculatePlayerTotalAssetsValue(player);
+            ServiceResult<int> playerMoney = GetPlayerMoney(player);
+
+            if (playerMoney.Data + totalValue.Data < 0)
+            {
+                player.PlayerState = PlayerStateEnum.Bankrupt;
+
+                foreach (IAsset asset in player.Assets.ToList())
+                {
+                    asset.Owner = null;
+                    asset.AmountHouse = 0;
+                    asset.AssetCondition = AssetCondition.Normal;
+                }
+                player.Assets.Clear();
+                PlayerAssets[player].Clear();
+
+                List<IPlayer> activePlayers = GetActivePlayers();
+                if (activePlayers.Count == 1)
+                {
+                    IsGameOver = true;
+                    Winner = activePlayers[0];
+                }
+
+                return ServiceResult<bool>.Success(true);
+            }
+
+            return ServiceResult<bool>.Success(false);
+        }
+
+        #endregion
+
+        #region Game State & Data
 
         public ServiceResult<GameData> GetGameState()
         {
@@ -1328,69 +1452,7 @@ namespace MonopolyBackend.Services
             return actions;
         }
 
-        public ServiceResult<int> CalculatePlayerTotalWealth(IPlayer player)
-        {
-            ServiceResult<int> moneyResult = GetPlayerMoney(player);
-            if (!moneyResult.IsSuccess)
-                return ServiceResult<int>.Fail(moneyResult.Error!);
-
-            ServiceResult<int> assetsResult = CalculatePlayerTotalAssetsValue(player);
-            if (!assetsResult.IsSuccess)
-                return ServiceResult<int>.Fail(assetsResult.Error!);
-
-            int totalWealth = moneyResult.Data + assetsResult.Data;
-            return ServiceResult<int>.Success(totalWealth);
-        }
-
-        public ServiceResult<ForceEndGameResult> ExecuteForceEndGame()
-        {
-            if (IsGameOver)
-                return ServiceResult<ForceEndGameResult>.Fail(
-                    new ServiceError(ErrorType.Validation, "Game is already over.")
-                );
-
-            List<PlayerRanking> rankings = new List<PlayerRanking>();
-
-            foreach (IPlayer player in Players)
-            {
-                ServiceResult<int> wealthResult = CalculatePlayerTotalWealth(player);
-                ServiceResult<int> moneyResult = GetPlayerMoney(player);
-                ServiceResult<int> assetsResult = CalculatePlayerTotalAssetsValue(player);
-
-                rankings.Add(new PlayerRanking
-                {
-                    PlayerName = player.Name,
-                    TotalWealth = wealthResult.Data,
-                    Cash = moneyResult.Data,
-                    AssetsValue = assetsResult.Data,
-                    PropertyCount = player.Assets.Count,
-                    HouseCount = player.Assets.Sum(a => a.AmountHouse)
-                });
-            }
-
-            rankings = rankings.OrderByDescending(r => r.TotalWealth).ToList();
-
-            for (int i = 0; i < rankings.Count; i++)
-            {
-                rankings[i].Rank = i + 1;
-            }
-
-            IPlayer winner = Players.First(p => p.Name == rankings[0].PlayerName);
-            IsGameOver = true;
-            Winner = winner;
-
-            ForceEndGameResult result = new ForceEndGameResult
-            {
-                IsGameOver = true,
-                WinnerName = winner.Name,
-                TotalTurns = CurrentTurn,
-                Rankings = rankings
-            };
-
-            _logger.LogInformation("[Service Layer] Game ended forcefully. Winner: {WinnerName} after {TotalTurns} turns.", winner.Name, CurrentTurn);
-
-            return ServiceResult<ForceEndGameResult>.Success(result);
-        }
+        #endregion
 
     }
 }
