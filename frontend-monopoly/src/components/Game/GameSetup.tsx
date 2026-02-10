@@ -3,7 +3,6 @@ import { gameApi } from '../../services/api';
 import toast from 'react-hot-toast';
 import diceLogo from '../../assets/dice_logo.png';
 import monopolyBg from '../../assets/monopoly_bg.webp';
-import { AudioController } from '../Audio/AudioController';
 
 interface GameSetupProps {
   onGameCreated: () => void;
@@ -20,15 +19,6 @@ export function GameSetup({ onGameCreated, onReset, hasActiveGame }: GameSetupPr
 
   // Loading screen effect
   useEffect(() => {
-    const loadingMessages = [
-      'Loading game assets...',
-      'Preparing the board...',
-      'Shuffling Chance cards...',
-      'Counting money...',
-      'Setting up properties...',
-      'Almost ready...'
-    ];
-    
     let currentProgress = 0;
     const interval = setInterval(() => {
       currentProgress += Math.random() * 3 + 1;
@@ -196,19 +186,16 @@ export function GameSetup({ onGameCreated, onReset, hasActiveGame }: GameSetupPr
         <style>{`
           @keyframes shimmer {
             0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-          }
-          @keyframes moveStripes {
-            0% { transform: translateX(-20px); }
-            100% { transform: translateX(0); }
-          }
-        `}</style>
-
-        {/* Audio Controller */}
-        <AudioController />
-      </div>
-    );
-  }
+          100% { background-position: -200% 0; }
+        }
+        @keyframes moveStripes {
+          0% { transform: translateX(-20px); }
+          100% { transform: translateX(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
 
   return (
     <div 

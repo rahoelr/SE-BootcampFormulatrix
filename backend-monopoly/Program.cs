@@ -11,21 +11,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
-        var allowedOrigins = new List<string>
-        {
-            "http://localhost:3000",
-            "http://localhost:5173"
-        };
-
-        var configOrigins = builder.Configuration.GetSection("CORS:AllowedOrigins").Get<string[]>();
-        if (configOrigins != null && configOrigins.Length > 0)
-        {
-            allowedOrigins.AddRange(configOrigins);
-        }
-
-        policy.WithOrigins(allowedOrigins.ToArray())
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .WithExposedHeaders("Access-Control-Allow-Private-Network");
     });
 });
 
@@ -50,6 +39,15 @@ if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Headers.ContainsKey("Access-Control-Request-Private-Network"))
+    {
+        context.Response.Headers.Add("Access-Control-Allow-Private-Network", "true");
+    }
+    await next();
+});
 
 app.UseCors("AllowReactApp");
 

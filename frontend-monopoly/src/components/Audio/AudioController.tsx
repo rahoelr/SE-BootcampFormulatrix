@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import monopolyTheme from '../../assets/monopoly_main_theme.mp3';
 
-export function AudioController() {
+interface AudioControllerProps {
+  track?: string;
+}
+
+export function AudioController({ track = monopolyTheme }: AudioControllerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.5);
@@ -9,15 +13,44 @@ export function AudioController() {
 
   useEffect(() => {
     // Create audio element
-    audioRef.current = new Audio(monopolyTheme);
+    audioRef.current = new Audio(track);
     audioRef.current.loop = true;
     audioRef.current.volume = volume;
 
-    // Auto-play on mount
-    audioRef.current.play().catch((err) => {
-      console.log('Auto-play blocked by browser, user interaction required');
-      setIsPlaying(false);
-    });
+    // Auto-play on mount with promise handling
+    const playPromise = audioRef.current.play();
+    
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          // Autoplay started successfully
+          console.log('Audio autoplay started successfully');
+          setIsPlaying(true);
+        })
+        .catch(() => {
+          // Autoplay was prevented - try to enable on first user interaction
+          console.log('Auto-play blocked by browser, will try on user interaction');
+          setIsPlaying(false);
+          
+          // Setup one-time click listener to start audio
+          const startAudioOnInteraction = () => {
+            if (audioRef.current) {
+              audioRef.current.play()
+                .then(() => {
+                  setIsPlaying(true);
+                  console.log('Audio started after user interaction');
+                })
+                .catch(console.error);
+            }
+            // Remove listeners after first interaction
+            document.removeEventListener('click', startAudioOnInteraction);
+            document.removeEventListener('keydown', startAudioOnInteraction);
+          };
+          
+          document.addEventListener('click', startAudioOnInteraction, { once: true });
+          document.addEventListener('keydown', startAudioOnInteraction, { once: true });
+        });
+    }
 
     return () => {
       if (audioRef.current) {
@@ -26,6 +59,23 @@ export function AudioController() {
       }
     };
   }, []);
+
+  // Switch track when track prop changes
+  useEffect(() => {
+    if (audioRef.current && audioRef.current.src !== track) {
+      const wasPlaying = !audioRef.current.paused;
+      const currentVolume = audioRef.current.volume;
+      
+      // Update track
+      audioRef.current.src = track;
+      audioRef.current.volume = currentVolume;
+      
+      // Resume playing if it was playing before
+      if (wasPlaying) {
+        audioRef.current.play().catch(console.error);
+      }
+    }
+  }, [track]);
 
   useEffect(() => {
     if (audioRef.current) {
