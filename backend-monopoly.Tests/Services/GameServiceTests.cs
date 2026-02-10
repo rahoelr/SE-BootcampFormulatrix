@@ -53,6 +53,14 @@ namespace MonopolyBackend.Tests.Services
             return mock.Object;
         }
 
+        private IAsset CreateMockAsset(string name, int value)
+        {
+            var mock = new Mock<IAsset>();
+            mock.Setup(a => a.Name).Returns(name);
+            mock.Setup(a => a.Value).Returns(value);
+            return mock.Object;
+        }
+
         #region AddMoney Tests
 
         [Test]
@@ -158,6 +166,172 @@ namespace MonopolyBackend.Tests.Services
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
             Assert.That(result.Error?.Message, Is.EqualTo("Player cannot be null."));
+        }
+
+        #endregion
+
+        #region GetMortgageValue Tests
+
+        [Test]
+        public void GetMortgageValue_ValidAsset_ShouldReturnHalfValue()
+        {
+            // Arrange
+            var asset = CreateMockAsset("Solo", 1000);
+
+            // Act
+            var result = _gameService.GetMortgageValue(asset);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Data, Is.EqualTo(500));
+        }
+
+        [Test]
+        public void GetMortgageValue_NullAsset_ShouldReturnValidationError()
+        {
+            // Arrange
+            IAsset nullAsset = null!;
+
+            // Act
+            var result = _gameService.GetMortgageValue(nullAsset);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Error?.Message, Is.EqualTo("Asset cannot be null."));
+        }
+
+        #endregion
+
+        #region GetUnmortgageCost Tests
+
+        [Test]
+        public void GetUnmortgageCost_ValidAsset_ShouldReturnMortgageValuePlusTenPercent()
+        {
+            // Arrange
+            var asset = CreateMockAsset("Solo", 1000);
+
+            // Act
+            var result = _gameService.GetUnmortgageCost(asset);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Data, Is.EqualTo(550)); // (1000/2) * 1.1 = 550
+        }
+
+        [Test]
+        public void GetUnmortgageCost_NullAsset_ShouldReturnValidationError()
+        {
+            // Arrange
+            IAsset nullAsset = null!;
+
+            // Act
+            var result = _gameService.GetUnmortgageCost(nullAsset);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Error?.Message, Is.EqualTo("Asset cannot be null."));
+        }
+
+        #endregion
+
+        #region GetJailTurns Tests
+
+        [Test]
+        public void GetJailTurns_ValidPlayer_ShouldReturnInitialZero()
+        {
+            // Arrange
+            var player = _players[0];
+
+            // Act
+            var result = _gameService.GetJailTurns(player);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Data, Is.EqualTo(0)); // Initial jail turns
+        }
+
+        [Test]
+        public void GetJailTurns_NullPlayer_ShouldReturnValidationError()
+        {
+            // Arrange
+            IPlayer nullPlayer = null!;
+
+            // Act
+            var result = _gameService.GetJailTurns(nullPlayer);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Error?.Message, Is.EqualTo("Player cannot be null."));
+        }
+
+        #endregion
+
+        #region HasGetOutOfJailCard Tests
+
+        [Test]
+        public void HasGetOutOfJailCard_PlayerWithoutCard_ShouldReturnFalse()
+        {
+            // Arrange
+            var player = _players[0];
+
+            // Act
+            var result = _gameService.HasGetOutOfJailCard(player);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Data, Is.False); // No cards initially
+        }
+
+        [Test]
+        public void HasGetOutOfJailCard_NullPlayer_ShouldReturnValidationError()
+        {
+            // Arrange
+            IPlayer nullPlayer = null!;
+
+            // Act
+            var result = _gameService.HasGetOutOfJailCard(nullPlayer);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Error?.Message, Is.EqualTo("Player cannot be null."));
+        }
+
+        #endregion
+
+        #region GetActivePlayers Tests
+
+        [Test]
+        public void GetActivePlayers_AllPlayersActive_ShouldReturnAllPlayers()
+        {
+            // Act
+            var activePlayers = _gameService.GetActivePlayers();
+
+            // Assert
+            Assert.That(activePlayers, Is.Not.Null);
+            Assert.That(activePlayers.Count, Is.EqualTo(2));
+            Assert.That(activePlayers, Does.Contain(_players[0]));
+            Assert.That(activePlayers, Does.Contain(_players[1]));
+        }
+
+        [Test]
+        public void GetActivePlayers_OneBankruptPlayer_ShouldReturnOnlyActivePlayer()
+        {
+            // Arrange
+            var bankruptPlayer = _players[0];
+            bankruptPlayer.PlayerState = Enums.PlayerState.Bankrupt;
+
+            // Act
+            var activePlayers = _gameService.GetActivePlayers();
+
+            // Assert
+            Assert.That(activePlayers, Is.Not.Null);
+            Assert.That(activePlayers.Count, Is.EqualTo(1));
+            Assert.That(activePlayers, Does.Not.Contain(bankruptPlayer));
+            Assert.That(activePlayers, Does.Contain(_players[1]));
         }
 
         #endregion

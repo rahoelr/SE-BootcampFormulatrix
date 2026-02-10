@@ -254,13 +254,23 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<int> GetJailTurns(IPlayer player)
         {
+            if (player == null)
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
+                );
+
             int result = _playerJailTurns.ContainsKey(player) ? _playerJailTurns[player] : 0;
             return ServiceResult<int>.Success(result);
         }
 
         public ServiceResult<bool> HasGetOutOfJailCard(IPlayer player)
         {
-            bool result = _playerGetOutOfJailCards.ContainsKey(player) &&
+            if (player == null)
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
+                );
+            
+            bool result = _playerGetOutOfJailCards.ContainsKey(player) && 
                           _playerGetOutOfJailCards[player] > 0;
             return ServiceResult<bool>.Success(result);
         }
@@ -756,12 +766,25 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<int> GetMortgageValue(IAsset asset)
         {
-            int mortageResult = asset.Value / 2;
-            return ServiceResult<int>.Success(mortageResult);
+            // Validate asset
+            if (asset == null)
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Asset cannot be null.")
+                );
+            
+            // Calculate mortgage value
+            int mortgageResult = asset.Value / 2;
+            return ServiceResult<int>.Success(mortgageResult);
         }
 
         public ServiceResult<int> GetUnmortgageCost(IAsset asset)
         {
+            // Validate asset directly (for clarity)
+            if (asset == null)
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Asset cannot be null.")
+                );
+            
             ServiceResult<int> mortgageResult = GetMortgageValue(asset);
 
             if (!mortgageResult.IsSuccess)
