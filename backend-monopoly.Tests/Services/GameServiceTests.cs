@@ -104,7 +104,7 @@ namespace MonopolyBackend.Tests.Services
         public void SubtractMoney_ValidAmount_ShouldDecreasePlayerMoney()
         {
             // Arrange
-            var player = _players[0]; 
+            var player = _players[0];
             int initialMoney = _gameService.GetPlayerMoney(player).Data; // 1500
             int subtractAmount = 500;
 
@@ -113,7 +113,7 @@ namespace MonopolyBackend.Tests.Services
 
             // Assert
             Assert.That(result.IsSuccess, Is.True); // sukses
-            Assert.That(_gameService.GetPlayerMoney(player).Data, 
+            Assert.That(_gameService.GetPlayerMoney(player).Data,
                         Is.EqualTo(initialMoney - subtractAmount)); // 1000 == 1500 - 500
         }
 
@@ -328,10 +328,11 @@ namespace MonopolyBackend.Tests.Services
             var activePlayers = _gameService.GetActivePlayers();
 
             // Assert
-            Assert.That(activePlayers, Is.Not.Null);
-            Assert.That(activePlayers.Count, Is.EqualTo(1));
-            Assert.That(activePlayers, Does.Not.Contain(bankruptPlayer));
-            Assert.That(activePlayers, Does.Contain(_players[1]));
+            Assert.That(activePlayers, Is.Not.Null); // Daftar hasil tidak boleh null
+            Assert.That(activePlayers.Count, Is.EqualTo(1)); // Hanya ada 1 pemain aktif
+            Assert.That(activePlayers, Does.Not.Contain(bankruptPlayer)); // Pemain bangkrut tidak ada di daftar
+            Assert.That(activePlayers, Does.Contain(_players[1])); // Pemain kedua tetap ada di daftar
+
         }
 
         #endregion
@@ -347,7 +348,7 @@ namespace MonopolyBackend.Tests.Services
             // assert
             // CurrentTurn awalnya 0 (pemain pertama), setelah NextTurn() bertambah 1
             Assert.That(_gameService.CurrentTurn, Is.EqualTo(1));
-            
+
             // Index 1 di daftar _players menunjuk pemain kedua (Bagus)
             Assert.That(_gameService.CurrentPlayer, Is.EqualTo(_players[1]));
         }
