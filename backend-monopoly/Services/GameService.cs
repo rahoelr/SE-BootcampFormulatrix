@@ -99,6 +99,18 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<int> GetPlayerMoney(IPlayer player)
         {
+            // Validate player
+            if (player == null)
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
+                );
+            
+            if (!PlayerMoney.ContainsKey(player))
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.NotFound, "Player not found in game.")
+                );
+
+            // Get money
             int getPlayerMoneyResult = PlayerMoney[player].Sum(m => m.Balance);
             return ServiceResult<int>.Success(getPlayerMoneyResult);
         }
@@ -764,6 +776,17 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<bool> AddMoney(IPlayer player, int amount)
         {
+
+            if (player == null)
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
+                );
+            
+            if (!PlayerMoney.ContainsKey(player))
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.NotFound, "Player not found in game.")
+                );
+
             if (amount <= 0)
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Amount must be greater than zero.")
@@ -771,11 +794,22 @@ namespace MonopolyBackend.Services
 
             IMoney money = new Money(amount);
             PlayerMoney[player].Add(money);
+            
             return ServiceResult<bool>.Success(true);
         }
 
         public ServiceResult<bool> SubtractMoney(IPlayer player, int amount)
         {
+            if (player == null)
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
+                );
+            
+            if (!PlayerMoney.ContainsKey(player))
+                return ServiceResult<bool>.Fail(
+                    new ServiceError(ErrorType.NotFound, "Player not found in game.")
+                );
+
             if (amount <= 0)
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Amount must be greater than zero.")
