@@ -11,21 +11,17 @@ namespace MonopolyBackend.Controllers
     [Route("api/[controller]")]
     public class GameController : ControllerBase
     {
-        private readonly GameServiceManager _gameManager;
+        private readonly GameService _gameService;
+        private readonly ILogger<GameController> _logger;
 
-        public GameController(GameServiceManager gameManager)
+        public GameController(GameService gameService, ILO)
         {
-            _gameManager = gameManager;
+            _gameService = gameService;
         }
 
         [HttpPost("create")]
         public ActionResult<GameStateResponse> CreateGame([FromBody] CreateGameRequest request)
         {
-            if (_gameManager.CurrentGame != null)
-            {
-                return Conflict(new { error = "Game already exists. Reset first." });
-            }
-
             if (request.PlayerNames == null || request.PlayerNames.Count < 2 || request.PlayerNames.Count > 4)
             {
                 return BadRequest(new { error = "Must have 2-4 players" });
@@ -36,8 +32,9 @@ namespace MonopolyBackend.Controllers
                 return BadRequest(new { error = "Player names must be unique" });
             }
 
-            _gameManager.CurrentGame = GameInitializationService.CreateGame(request.PlayerNames);
-            ServiceResult<GameData> gameStateResult = _gameManager.CurrentGame.GetGameState();
+            // Note: You may need to implement a method in GameService to initialize/create a new game
+            // or use GameInitializationService separately
+            ServiceResult<GameData> gameStateResult = _gameService.GetGameState();
             
             if (!gameStateResult.IsSuccess)
             {
@@ -50,7 +47,7 @@ namespace MonopolyBackend.Controllers
         [HttpPost("reset")]
         public ActionResult<ResetResponse> Reset()
         {
-            _gameManager.Reset();
+            _gameService.Reset();
             ResetResponse response = new ResetResponse
             {
                 Success = true,
@@ -64,7 +61,7 @@ namespace MonopolyBackend.Controllers
         {
             GameStatusResponse response = new GameStatusResponse
             {
-                HasActiveGame = _gameManager.HasActiveGame
+                HasActiveGame = !_gameService.IsGameOver
             };
             return Ok(response);
         }
@@ -79,10 +76,7 @@ namespace MonopolyBackend.Controllers
         [HttpGet("state")]
         public ActionResult<GameStateResponse> GetGameState()
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game. Create one first." });
-
-            ServiceResult<GameData> gameStateResult = _gameManager.CurrentGame.GetGameState();
+            ServiceResult<GameData> gameStateResult = _gameService.GetGameState();
             
             if (!gameStateResult.IsSuccess)
             {
@@ -138,21 +132,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("roll-dice")]
         public ActionResult<RollDiceResponse> RollDice([FromBody] PlayerActionRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<RollDiceResult> result = _gameManager.CurrentGame.ExecuteRollDice(request.PlayerName);
+            ServiceResult<RollDiceResult> result = _gameService.ExecuteRollDice(request.PlayerName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             RollDiceResponse dto = new RollDiceResponse
@@ -171,21 +154,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("buy-property")]
         public ActionResult<ActionResultResponse> BuyProperty([FromBody] PlayerActionRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteBuyProperty(request.PlayerName);
+            ServiceResult<PropertyActionResult> result = _gameService.ExecuteBuyProperty(request.PlayerName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
@@ -200,21 +172,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("build-house")]
         public ActionResult<ActionResultResponse> BuildHouse([FromBody] BuildHouseRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteBuildHouse(request.PlayerName, request.PropertyName);
+            ServiceResult<PropertyActionResult> result = _gameService.ExecuteBuildHouse(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
@@ -229,21 +190,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("sell-house")]
         public ActionResult<ActionResultResponse> SellHouse([FromBody] BuildHouseRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteSellHouse(request.PlayerName, request.PropertyName);
+            ServiceResult<PropertyActionResult> result = _gameService.ExecuteSellHouse(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
@@ -258,21 +208,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("mortgage")]
         public ActionResult<ActionResultResponse> Mortgage([FromBody] MortgagePropertyRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteMortgage(request.PlayerName, request.PropertyName);
+            ServiceResult<PropertyActionResult> result = _gameService.ExecuteMortgage(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
@@ -287,21 +226,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("unmortgage")]
         public ActionResult<ActionResultResponse> Unmortgage([FromBody] MortgagePropertyRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<PropertyActionResult> result = _gameManager.CurrentGame.ExecuteUnmortgage(request.PlayerName, request.PropertyName);
+            ServiceResult<PropertyActionResult> result = _gameService.ExecuteUnmortgage(request.PlayerName, request.PropertyName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
@@ -316,21 +244,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("trade")]
         public ActionResult<ActionResultResponse> Trade([FromBody] TradeRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<TradeResult> result = _gameManager.CurrentGame.ExecuteTrade(request);
+            ServiceResult<TradeResult> result = _gameService.ExecuteTrade(request);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
@@ -345,21 +262,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("pay-jail-fee")]
         public ActionResult<ActionResultResponse> PayJailFee([FromBody] PlayerActionRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<bool> result = _gameManager.CurrentGame.ExecutePayJailFee(request.PlayerName);
+            ServiceResult<bool> result = _gameService.ExecutePayJailFee(request.PlayerName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
@@ -374,21 +280,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("use-jail-card")]
         public ActionResult<ActionResultResponse> UseJailCard([FromBody] PlayerActionRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<bool> result = _gameManager.CurrentGame.ExecuteUseJailCard(request.PlayerName);
+            ServiceResult<bool> result = _gameService.ExecuteUseJailCard(request.PlayerName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
@@ -403,21 +298,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("try-roll-doubles")]
         public ActionResult<RollDiceResponse> TryRollDoublesInJail([FromBody] PlayerActionRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<RollDiceResult> result = _gameManager.CurrentGame.ExecuteTryRollDoublesInJail(request.PlayerName);
+            ServiceResult<RollDiceResult> result = _gameService.ExecuteTryRollDoublesInJail(request.PlayerName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             RollDiceResponse dto = new RollDiceResponse
@@ -436,27 +320,16 @@ namespace MonopolyBackend.Controllers
         [HttpPost("end-turn")]
         public ActionResult<ActionResultResponse> EndTurn([FromBody] PlayerActionRequest request)
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<bool> result = _gameManager.CurrentGame.ExecuteEndTurn(request.PlayerName);
+            ServiceResult<bool> result = _gameService.ExecuteEndTurn(request.PlayerName);
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ActionResultResponse dto = new ActionResultResponse
             {
                 Success = true,
-                Message = $"Turn ended. Now it's {_gameManager.CurrentGame.CurrentPlayer.Name}'s turn."
+                Message = $"Turn ended. Now it's {_gameService.CurrentPlayer.Name}'s turn."
             };
 
             return Ok(dto);
@@ -465,21 +338,10 @@ namespace MonopolyBackend.Controllers
         [HttpPost("force-end")]
         public ActionResult<ForceEndGameResponse> ForceEndGame()
         {
-            if (_gameManager.CurrentGame == null)
-                return NotFound(new { error = "No active game" });
-
-            ServiceResult<ForceEndGameResult> result = _gameManager.CurrentGame.ExecuteForceEndGame();
+            ServiceResult<ForceEndGameResult> result = _gameService.ExecuteForceEndGame();
             if (!result.IsSuccess)
             {
-                return result.Error?.Type switch
-                {
-                    ErrorType.NotFound => NotFound(new { error = result.Error.Message }),
-                    ErrorType.Conflict => Conflict(new { error = result.Error.Message }),
-                    ErrorType.Validation => BadRequest(new { error = result.Error.Message }),
-                    ErrorType.Unauthorized => Unauthorized(new { error = result.Error.Message }),
-                    ErrorType.Unexpected => StatusCode(500, new { error = result.Error.Message }),
-                    _ => BadRequest(new { error = result.Error?.Message })
-                };
+                return MapErrorToResponse(result.Error);
             }
 
             ForceEndGameResponse dto = new ForceEndGameResponse
@@ -505,6 +367,20 @@ namespace MonopolyBackend.Controllers
             };
 
             return Ok(dto);
+        }
+
+        // Helper method to reduce code duplication for error mapping
+        private ActionResult MapErrorToResponse(ServiceError? error)
+        {
+            return error?.Type switch
+            {
+                ErrorType.NotFound => NotFound(new { error = error.Message }),
+                ErrorType.Conflict => Conflict(new { error = error.Message }),
+                ErrorType.Validation => BadRequest(new { error = error.Message }),
+                ErrorType.Unauthorized => Unauthorized(new { error = error.Message }),
+                ErrorType.Unexpected => StatusCode(500, new { error = error.Message }),
+                _ => BadRequest(new { error = error?.Message })
+            };
         }
     }
 }

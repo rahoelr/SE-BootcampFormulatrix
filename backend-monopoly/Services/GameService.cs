@@ -1313,5 +1313,33 @@ namespace MonopolyBackend.Services
             return ServiceResult<ForceEndGameResult>.Success(result);
         }
 
+        public void Reset()
+        {
+            foreach (IPlayer player in Players)
+            {
+                player.PathIndex = 0;
+                player.PlayerState = PlayerStateEnum.Normal;
+                PlayerAssets[player] = new List<IAsset>();
+                PlayerMoney[player] = new List<IMoney> { new Money(1500) };
+                _playerJailTurns[player] = 0;
+                _playerGetOutOfJailCards[player] = 0;
+                _hasRolledThisTurn[player] = false;
+            }
+
+            foreach (var tile in TileAssets.Keys.ToList())
+            {
+                if (TileAssets[tile] != null)
+                {
+                    TileAssets[tile]!.Owner = null;
+                    TileAssets[tile]!.AmountHouse = 0;
+                    TileAssets[tile]!.AssetCondition = AssetCondition.Normal;
+                }
+            }
+
+            CurrentTurn = 0;
+            IsGameOver = false;
+            Winner = null;
+        }
+
     }
 }

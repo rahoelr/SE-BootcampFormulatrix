@@ -43,6 +43,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinalLogicExercise", "Final
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "backend-monopoly", "backend-monopoly\backend-monopoly.csproj", "{31939BEB-C263-452F-9BC3-E3EA8953865F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "backend-monopoly.Tests", "backend-monopoly.Tests\backend-monopoly.Tests.csproj", "{F707BADC-B75D-4FB1-A09F-18113D106C89}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -293,6 +295,18 @@ Global
 		{31939BEB-C263-452F-9BC3-E3EA8953865F}.Release|x64.Build.0 = Release|Any CPU
 		{31939BEB-C263-452F-9BC3-E3EA8953865F}.Release|x86.ActiveCfg = Release|Any CPU
 		{31939BEB-C263-452F-9BC3-E3EA8953865F}.Release|x86.Build.0 = Release|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Debug|x64.Build.0 = Debug|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Debug|x86.Build.0 = Debug|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Release|x64.ActiveCfg = Release|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Release|x64.Build.0 = Release|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Release|x86.ActiveCfg = Release|Any CPU
+		{F707BADC-B75D-4FB1-A09F-18113D106C89}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
