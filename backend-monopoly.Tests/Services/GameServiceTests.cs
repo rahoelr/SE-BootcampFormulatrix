@@ -4,6 +4,7 @@ using Moq;
 using MonopolyBackend.Services;
 using Microsoft.Extensions.Logging;
 using MonopolyBackend.Common;
+using Microsoft.VisualBasic;
 
 namespace MonopolyBackend.Tests.Services
 {
@@ -50,6 +51,7 @@ namespace MonopolyBackend.Tests.Services
             var mock = new Mock<IPlayer>();
             mock.Setup(p => p.Name).Returns(name);
             mock.SetupProperty(p => p.PlayerState, Enums.PlayerState.Normal);
+            mock.Setup(p => p.Assets).Returns(new List<IAsset>());
             return mock.Object;
         }
 
@@ -58,7 +60,21 @@ namespace MonopolyBackend.Tests.Services
             var mock = new Mock<IAsset>();
             mock.Setup(a => a.Name).Returns(name);
             mock.Setup(a => a.Value).Returns(value);
+            mock.Setup(a => a.AssetCondition).Returns(Enums.AssetCondition.Normal);
+            mock.Setup(a => a.AmountHouse).Returns(0);
             return mock.Object;
+        }
+
+        private void SetupBoardPath() // helper method
+        {
+            var path = new List<ITile>();
+            for (int i = 0; i < 40; i++)
+            {
+                var tile = new Mock<ITile>();
+                tile.Setup(t => t.Name).Returns(i == 10 ? "Jail" : $"Tile {i}");
+                path.Add(tile.Object);
+            }
+            _mockBoard.Setup(b => b.Path).Returns(path);
         }
 
         #region AddMoney Tests
@@ -92,8 +108,24 @@ namespace MonopolyBackend.Tests.Services
 
             // Assert
             Assert.That(result.IsSuccess, Is.False); // is success false
-            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation)); // type validation
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation)); //
             Assert.That(result.Error?.Message, Is.EqualTo("Amount must be greater than zero."));
+        }
+
+        [Test]
+        public void AddMoney_PlayerNotFound_ShouldReturnValidationError()
+        {
+            // Arrange
+            var nonExistentPlayer = CreateMockPlayer("Kevin"); // pemain lai
+            int amount = 100;
+
+            // Act
+            var result = _gameService.AddMoney(nonExistentPlayer, amount); // error
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.False); // gagal
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.NotFound));
+            Assert.That(result.Error?.Message, Is.EqualTo("Player not found in game."));
         }
 
         #endregion
@@ -142,15 +174,15 @@ namespace MonopolyBackend.Tests.Services
         public void GetPlayerMoney_ValidPlayer_ShouldReturnCorrectAmount()
         {
             // Arrange
-            var player = _players[0];
+            var player = _players[0]; // ambil player pertama (1500)
             int expectedInitialMoney = 1500;
 
             // Act
-            var result = _gameService.GetPlayerMoney(player);
+            var result = _gameService.GetPlayerMoney(player); // ambil uangnya
 
             // Assert
-            Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Data, Is.EqualTo(expectedInitialMoney));
+            Assert.That(result.IsSuccess, Is.True); // sukses
+            Assert.That(result.Data, Is.EqualTo(expectedInitialMoney)); // 1500 == 1500
         }
 
         [Test]
@@ -176,14 +208,14 @@ namespace MonopolyBackend.Tests.Services
         public void GetMortgageValue_ValidAsset_ShouldReturnHalfValue()
         {
             // Arrange
-            var asset = CreateMockAsset("Solo", 1000);
+            var asset = CreateMockAsset("Solo", 1000); // nilai aset 1000
 
             // Act
-            var result = _gameService.GetMortgageValue(asset);
+            var result = _gameService.GetMortgageValue(asset); // harusnya 500, dipotong 50%
 
             // Assert
-            Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Data, Is.EqualTo(500));
+            Assert.That(result.IsSuccess, Is.True); // sukses
+            Assert.That(result.Data, Is.EqualTo(500)); // 500 == 1000 / 2
         }
 
         [Test]
@@ -193,7 +225,7 @@ namespace MonopolyBackend.Tests.Services
             IAsset nullAsset = null!;
 
             // Act
-            var result = _gameService.GetMortgageValue(nullAsset);
+            var result = _gameService.GetMortgageValue(nullAsset); // error
 
             // Assert
             Assert.That(result.IsSuccess, Is.False);
@@ -209,10 +241,10 @@ namespace MonopolyBackend.Tests.Services
         public void GetUnmortgageCost_ValidAsset_ShouldReturnMortgageValuePlusTenPercent()
         {
             // Arrange
-            var asset = CreateMockAsset("Solo", 1000);
+            var asset = CreateMockAsset("Solo", 1000); // nilai aset 1000
 
             // Act
-            var result = _gameService.GetUnmortgageCost(asset);
+            var result = _gameService.GetUnmortgageCost(asset);   // (1000/2) * 1.1 = 550
 
             // Assert
             Assert.That(result.IsSuccess, Is.True);
@@ -242,21 +274,21 @@ namespace MonopolyBackend.Tests.Services
         public void GetJailTurns_ValidPlayer_ShouldReturnInitialZero()
         {
             // Arrange
-            var player = _players[0];
+            var player = _players[0]; // player rahul
 
             // Act
-            var result = _gameService.GetJailTurns(player);
+            var result = _gameService.GetJailTurns(player); // awalnya pasti 0
 
             // Assert
-            Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Data, Is.EqualTo(0)); // Initial jail turns
+            Assert.That(result.IsSuccess, Is.True); // sukses
+            Assert.That(result.Data, Is.EqualTo(0)); // awalnya 0
         }
 
         [Test]
         public void GetJailTurns_NullPlayer_ShouldReturnValidationError()
         {
             // Arrange
-            IPlayer nullPlayer = null!;
+            IPlayer nullPlayer = null!; // null
 
             // Act
             var result = _gameService.GetJailTurns(nullPlayer);
@@ -275,14 +307,14 @@ namespace MonopolyBackend.Tests.Services
         public void HasGetOutOfJailCard_PlayerWithoutCard_ShouldReturnFalse()
         {
             // Arrange
-            var player = _players[0];
+            var player = _players[0]; // player rahul
 
             // Act
-            var result = _gameService.HasGetOutOfJailCard(player);
+            var result = _gameService.HasGetOutOfJailCard(player); // awalnya pasti false
 
             // Assert
-            Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Data, Is.False); // No cards initially
+            Assert.That(result.IsSuccess, Is.True); // sukses
+            Assert.That(result.Data, Is.False); // tidak ada kartu keluar dari penjara
         }
 
         [Test]
@@ -292,7 +324,7 @@ namespace MonopolyBackend.Tests.Services
             IPlayer nullPlayer = null!;
 
             // Act
-            var result = _gameService.HasGetOutOfJailCard(nullPlayer);
+            var result = _gameService.HasGetOutOfJailCard(nullPlayer); // false
 
             // Assert
             Assert.That(result.IsSuccess, Is.False);
@@ -308,13 +340,13 @@ namespace MonopolyBackend.Tests.Services
         public void GetActivePlayers_AllPlayersActive_ShouldReturnAllPlayers()
         {
             // Act
-            var activePlayers = _gameService.GetActivePlayers();
+            var activePlayers = _gameService.GetActivePlayers(); // ambil semua pemain aktif
 
             // Assert
-            Assert.That(activePlayers, Is.Not.Null);
-            Assert.That(activePlayers.Count, Is.EqualTo(2));
-            Assert.That(activePlayers, Does.Contain(_players[0]));
-            Assert.That(activePlayers, Does.Contain(_players[1]));
+            Assert.That(activePlayers, Is.Not.Null); // hasil ga boleh null
+            Assert.That(activePlayers.Count, Is.EqualTo(2)); // ada 2 pemain aktif
+            Assert.That(activePlayers, Does.Contain(_players[0])); // ada pemain pertama rahul
+            Assert.That(activePlayers, Does.Contain(_players[1])); // ada pemain kedua bagus
         }
 
         [Test]
@@ -325,7 +357,7 @@ namespace MonopolyBackend.Tests.Services
             bankruptPlayer.PlayerState = Enums.PlayerState.Bankrupt;
 
             // Act
-            var activePlayers = _gameService.GetActivePlayers();
+            var activePlayers = _gameService.GetActivePlayers(); // ambil semua pemain aktif
 
             // Assert
             Assert.That(activePlayers, Is.Not.Null); // Daftar hasil tidak boleh null
@@ -351,6 +383,152 @@ namespace MonopolyBackend.Tests.Services
 
             // Index 1 di daftar _players menunjuk pemain kedua (Bagus)
             Assert.That(_gameService.CurrentPlayer, Is.EqualTo(_players[1]));
+        }
+
+        [Test]
+        public void NextTurn_PlayerSkipsBankruptPlayer_ShouldAdvanceToNextActivePlayer()
+        {
+            // arrange
+            // Set pemain pertama menjadi bangkrut
+            var bankruptPlayer = _players[0];
+            bankruptPlayer.PlayerState = Enums.PlayerState.Bankrupt;
+
+            // act
+            _gameService.NextTurn();
+
+            // assert
+            // CurrentTurn harus melompat ke 1
+            Assert.That(_gameService.CurrentTurn, Is.EqualTo(1));
+
+            // CurrentPlayer harus menunjuk pemain kedua (Bagus)
+            Assert.That(_gameService.CurrentPlayer, Is.EqualTo(_players[1]));
+        }
+
+        #endregion
+
+        #region CalculateTotaAssets_Tests
+
+        [Test]
+        public void CalculatePlayerTotalAssetsValue_UnmortgagedAssets_ShouldReturnCorrectTotal()
+        {
+            // Arrange
+            var player = _players[0]; // ambil pemain pertama
+
+            var asset1 = CreateMockAsset("Yogyakarta", 350); // buat aset pertama
+            var asset2 = CreateMockAsset("Surakarta", 400); // buat aset kedua
+
+            player.Assets.Add(asset1);
+            player.Assets.Add(asset2);
+
+            // Act
+            var result = _gameService.CalculatePlayerTotalAssetsValue(player);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Data, Is.EqualTo(750)); // 350 + 400
+        }
+
+        [Test]
+        public void CalculatePlayerTotalAssetsValue_NullAsset_ShouldReturnValidationError()
+        {
+            // Arrange
+            IPlayer nullPlayer = null!;
+
+            // Act
+            var result = _gameService.CalculatePlayerTotalAssetsValue(nullPlayer);
+
+            // Assert
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Error?.Message, Is.EqualTo("Player cannot be null."));
+        }
+        #endregion
+
+        #region CalculateTotalPlayerWealth_Tests
+        [Test]
+        public void CalculatePlayerTotalWealth_FailGetMoney_ShouldReturnInvalid()
+        {
+            // arrage
+            // IPlayer player =_players[0];
+            IPlayer player = null!;
+
+            // act
+            var result = _gameService.CalculatePlayerTotalWealth(player);
+
+            // assert
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Error?.Message, Is.EqualTo("Failed to get player money."));
+
+        }
+
+        [Test]
+        public void CalculatePlayerTotalWealth_GetTotalWealth_ShouldReturnTotalMoneyAssets()
+        {
+            // arrage
+            IPlayer player = _players[0]; // 1500
+            var asset1 = CreateMockAsset("Semarang", 200);
+            var asset2 = CreateMockAsset("Purwokerto", 300);
+
+            player.Assets.Add(asset1); // add asets ke player
+            player.Assets.Add(asset2);
+
+            var resultMoney = _gameService.GetPlayerMoney(player);
+            var resultPlayerAssets = _gameService.CalculatePlayerTotalAssetsValue(player);
+            var resultTotal = resultMoney.Data + resultPlayerAssets.Data;
+            // act
+            var resultWealth = _gameService.CalculatePlayerTotalWealth(player);
+
+            // assert
+            Assert.That(resultPlayerAssets.IsSuccess, Is.True);
+            Assert.That(resultWealth.Data,
+                        Is.EqualTo(resultTotal));
+
+        }
+
+        #endregion
+
+        #region SendToJail_Tests
+
+        [Test]
+        public void SendToJail_GoToJail_ShouldPlacePlayerInJail()
+        {
+            SetupBoardPath();
+            var player = _players[0];
+
+            _gameService.SendToJail();
+
+            Assert.That(player.PlayerState, Is.EqualTo(Enums.PlayerState.InJail));
+        }
+
+        #endregion
+
+        #region PayJailFee_Tests
+
+        [Test]
+        public void PayJailFee_PlayerNotInJail_ShouldReturnValidationError()
+        {
+            var player = _players[0];
+
+            var result = _gameService.PayJailFee();
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Error?.Message, Is.EqualTo("Player is not in jail."));
+        }
+
+        [Test]
+        public void PayJailFee_InvalidPay_ShouldReturnFalse()
+        {
+            var player = _players[0]; // permain pertama
+            var playerState = Enums.PlayerState.InJail;
+            player.PlayerState = playerState;
+            var playerMoney = _gameService.SubtractMoney(player, 1499);
+
+            var result = _gameService.PayJailFee();
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error?.Type, Is.EqualTo(ErrorType.Validation));
+            Assert.That(result.Error?.Message, Is.EqualTo("Insufficient funds to pay jail fee."));
         }
 
         #endregion

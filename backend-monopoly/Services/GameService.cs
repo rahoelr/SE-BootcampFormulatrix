@@ -99,12 +99,18 @@ namespace MonopolyBackend.Services
         {
             ServiceResult<IPlayer> validationResult = ValidatePlayerTurn(playerName);
             if (!validationResult.IsSuccess)
+            {
+                _logger.LogWarning("EndTurn validation failed for player {PlayerName}: {ErrorMessage}", playerName, validationResult.Error?.Message);
                 return ServiceResult<bool>.Fail(validationResult.Error!);
+            }
 
             if (!_hasRolledThisTurn.ContainsKey(CurrentPlayer) || !_hasRolledThisTurn[CurrentPlayer])
+            {
+                _logger.LogWarning("[Service Layer] Player {PlayerName} attempted to end turn without rolling dice.", playerName);
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "You must roll dice before ending turn.")
                 );
+            }
 
             NextTurn();
             return ServiceResult<bool>.Success(true);
@@ -182,23 +188,22 @@ namespace MonopolyBackend.Services
 
         public List<IPlayer> GetActivePlayers()
         {
+            _logger.LogInformation("[Service Layer] Retrieving active players.");
             return Players.Where(p => p.PlayerState != PlayerStateEnum.Bankrupt).ToList();
         }
 
         public ServiceResult<int> GetPlayerMoney(IPlayer player)
         {
-            // Validate player
             if (player == null)
                 return ServiceResult<int>.Fail(
                     new ServiceError(ErrorType.Validation, "Player cannot be null.")
                 );
-            
+
             if (!PlayerMoney.ContainsKey(player))
                 return ServiceResult<int>.Fail(
                     new ServiceError(ErrorType.NotFound, "Player not found in game.")
                 );
 
-            // Get money
             int getPlayerMoneyResult = PlayerMoney[player].Sum(m => m.Balance);
             return ServiceResult<int>.Success(getPlayerMoneyResult);
         }
@@ -220,8 +225,8 @@ namespace MonopolyBackend.Services
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Player cannot be null.")
                 );
-            
-            bool result = _playerGetOutOfJailCards.ContainsKey(player) && 
+
+            bool result = _playerGetOutOfJailCards.ContainsKey(player) &&
                           _playerGetOutOfJailCards[player] > 0;
             return ServiceResult<bool>.Success(result);
         }
@@ -242,6 +247,7 @@ namespace MonopolyBackend.Services
                 Dice2 = dice2
             };
 
+            _logger.LogInformation("[Service Layer] Player {PlayerName} rolled dice: {Dice1} and {Dice2}.", CurrentPlayer.Name, dice1, dice2);
             return ServiceResult<DiceRoll>.Success(result);
         }
 
@@ -404,6 +410,7 @@ namespace MonopolyBackend.Services
             switch (tile.EffectType)
             {
                 case EffectType.Go:
+                    _logger.LogInformation("[Service Layer] Player {PlayerName} landed on GO and collected ${GoSalary}.", CurrentPlayer.Name, GO_SALARY);
                     break;
 
                 case EffectType.CommunityChest:
@@ -424,6 +431,7 @@ namespace MonopolyBackend.Services
                     break;
 
                 case EffectType.GoToJail:
+                    _logger.LogInformation("[Service Layer] Player {PlayerName} Landed on go to jail and is being sent to jail.", CurrentPlayer.Name);
                     SendToJail();
                     break;
 
@@ -470,6 +478,7 @@ namespace MonopolyBackend.Services
             if (subtractResult.IsSuccess)
             {
                 AddMoney(asset.Owner, rent);
+
             }
             else
             {
@@ -720,6 +729,7 @@ namespace MonopolyBackend.Services
             AddMoney(CurrentPlayer, sellPrice);
 
             string buildingType = asset.AmountHouse == 4 ? "hotel" : "rumah";
+            _logger.LogInformation("[Service Layer] Player {PlayerName} sold a {BuildingType} on {PropertyName} for ${SellPrice}", CurrentPlayer.Name, buildingType, asset.Name, sellPrice);
             return ServiceResult<bool>.Success(true);
         }
 
@@ -866,25 +876,22 @@ namespace MonopolyBackend.Services
 
         public ServiceResult<int> GetMortgageValue(IAsset asset)
         {
-            // Validate asset
             if (asset == null)
                 return ServiceResult<int>.Fail(
                     new ServiceError(ErrorType.Validation, "Asset cannot be null.")
                 );
-            
-            // Calculate mortgage value
+
             int mortgageResult = asset.Value / 2;
             return ServiceResult<int>.Success(mortgageResult);
         }
 
         public ServiceResult<int> GetUnmortgageCost(IAsset asset)
         {
-            // Validate asset directly (for clarity)
             if (asset == null)
                 return ServiceResult<int>.Fail(
                     new ServiceError(ErrorType.Validation, "Asset cannot be null.")
                 );
-            
+
             ServiceResult<int> mortgageResult = GetMortgageValue(asset);
 
             if (!mortgageResult.IsSuccess)
@@ -1055,7 +1062,7 @@ namespace MonopolyBackend.Services
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Player cannot be null.")
                 );
-            
+
             if (!PlayerMoney.ContainsKey(player))
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.NotFound, "Player not found in game.")
@@ -1068,7 +1075,7 @@ namespace MonopolyBackend.Services
 
             IMoney money = new Money(amount);
             PlayerMoney[player].Add(money);
-            
+
             return ServiceResult<bool>.Success(true);
         }
 
@@ -1078,7 +1085,7 @@ namespace MonopolyBackend.Services
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.Validation, "Player cannot be null.")
                 );
-            
+
             if (!PlayerMoney.ContainsKey(player))
                 return ServiceResult<bool>.Fail(
                     new ServiceError(ErrorType.NotFound, "Player not found in game.")
@@ -1241,6 +1248,13 @@ namespace MonopolyBackend.Services
         public ServiceResult<int> CalculatePlayerTotalAssetsValue(IPlayer player)
         {
             int total = 0;
+            if (player == null)
+            {
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Player cannot be null.")
+                );
+            }
+
             foreach (IAsset asset in player.Assets)
             {
                 if (asset.AssetCondition == AssetCondition.Mortgage)
@@ -1265,7 +1279,11 @@ namespace MonopolyBackend.Services
         {
             ServiceResult<int> moneyResult = GetPlayerMoney(player);
             if (!moneyResult.IsSuccess)
-                return ServiceResult<int>.Fail(moneyResult.Error!);
+            {
+                return ServiceResult<int>.Fail(
+                    new ServiceError(ErrorType.Validation, "Failed to get player money.")
+                );
+            }
 
             ServiceResult<int> assetsResult = CalculatePlayerTotalAssetsValue(player);
             if (!assetsResult.IsSuccess)
@@ -1304,9 +1322,11 @@ namespace MonopolyBackend.Services
                     Winner = activePlayers[0];
                 }
 
+                _logger.LogInformation("[Service Layer] Player {PlayerName} has gone bankrupt.", player.Name);
                 return ServiceResult<bool>.Success(true);
             }
 
+            _logger.LogInformation("[Service Layer] Player {PlayerName} is not bankrupt.", player.Name);
             return ServiceResult<bool>.Success(false);
         }
 
@@ -1448,6 +1468,8 @@ namespace MonopolyBackend.Services
             }
 
             actions.Add(GameActions.EndTurn);
+
+            _logger.LogInformation("[Service Layer] Available actions for player {PlayerName}: {Actions}", player.Name, string.Join(", ", actions));
 
             return actions;
         }

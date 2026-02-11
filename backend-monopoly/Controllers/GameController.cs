@@ -40,6 +40,8 @@ namespace MonopolyBackend.Controllers
                 return StatusCode(500, new { error = "Failed to create game state" });
             }
 
+            _logger.LogInformation("Game created with players: {PlayerNames}", string.Join(", ", request.PlayerNames));
+
             return Ok(gameStateResult.Data);
         }
 
@@ -189,6 +191,8 @@ namespace MonopolyBackend.Controllers
                 Message = result.Data.Message
             };
 
+            _logger.LogInformation("[Controller Layer] Player {PlayerName} attempted to buy property: {Success}", request.PlayerName, dto.Success);
+
             return Ok(dto);
         }
 
@@ -212,6 +216,8 @@ namespace MonopolyBackend.Controllers
                 Message = result.Data.Message
             };
 
+            _logger.LogInformation("[Controller Layer] Player {PlayerName} built a house on {PropertyName}: {Success}", request.PlayerName, request.PropertyName, dto.Success);
+
             return Ok(dto);
         }
 
@@ -234,6 +240,8 @@ namespace MonopolyBackend.Controllers
                 Success = result.Data.Success,
                 Message = result.Data.Message
             };
+
+            _logger.LogInformation("[Controller Layer] Player {PlayerName} sold a house on {PropertyName}: {Success}", request.PlayerName, request.PropertyName, dto.Success);
 
             return Ok(dto);
         }
@@ -326,6 +334,7 @@ namespace MonopolyBackend.Controllers
                 Success = result.Data,
                 Message = result.Data ? "Paid jail fee and released" : "Failed to pay jail fee"
             };
+            _logger.LogInformation("[Controller Layer] Player {PlayerName} paid jail fee: {Success}", request.PlayerName, dto.Success);
 
             return Ok(dto);
         }
@@ -350,6 +359,7 @@ namespace MonopolyBackend.Controllers
                 Message = result.Data ? "Used Get Out of Jail card" : "Failed to use card"
             };
 
+            _logger.LogInformation("[Controller Layer] Player {PlayerName} used Get Out of Jail card: {Success}", request.PlayerName, dto.Success);
             return Ok(dto);
         }
 
@@ -376,6 +386,8 @@ namespace MonopolyBackend.Controllers
                 NewPosition = result.Data.Move.NewPosition,
                 LandedTile = result.Data.Move.TileName
             };
+
+            _logger.LogInformation("[Controller Layer] Player {PlayerName} attempted to roll doubles in jail: {Dice1}, {Dice2} landed on {LandedTile}", request.PlayerName, dto.Dice1, dto.Dice2, dto.LandedTile);
 
             return Ok(dto);
         }
@@ -440,6 +452,8 @@ namespace MonopolyBackend.Controllers
                     }).ToList()
                 }
             };
+
+            _logger.LogInformation("[Controller Layer] Game force ended. Winner: {WinnerName}", result.Data.WinnerName);
 
             return Ok(dto);
         }
