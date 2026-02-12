@@ -14,22 +14,182 @@ public class ProductController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Product>>> GetProduct()
+    public async Task<ActionResult<ApiResponse<IEnumerable<ProductResponse>>>> GetProduct()
     {
-        return await _context.Products.ToListAsync();
+        var products = await _context.Products.Include(p => p.Category).ToListAsync();
+
+        var response = products.Select(p => new ProductResponse
+        {
+            Id = p.Id,
+            CategoryId = p.CategoryId,
+            ProductName = p.ProductName,
+            Stock = p.Stock,
+            CategoryName = p.Category?.CategoryName
+        }).ToList();
+
+        return Ok(new ApiResponse<IEnumerable<ProductResponse>>
+        {
+            Success = true,
+            Message = "Sukses mengambil data produk",
+            Data = response
+        });
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ApiResponse<ProductResponse>>> GetProductById(Guid id)
+    {
+        var product = await _context.Products.Include(p => p.Category).FirstOrDefaultAsync(p => p.Id == id);
+
+        if (product == null)
+        {
+            return NotFound(new ApiResponse<ProductResponse>
+            {
+                Success = false,
+                Message = "Produk tidak ditemukan",
+                Data = null
+            });
+        }
+
+        var response = new ProductResponse
+        {
+            Id = product.Id,
+            ProductName = product.ProductName,
+            Stock = product.Stock,
+            CategoryId = product.CategoryId,
+            CategoryName = product.Category?.CategoryName
+        };
+
+        return Ok(new ApiResponse<ProductResponse>
+        {
+            Success = true,
+            Message = "Sukses mengambil data produk",
+            Data = response
+        });
     }
 
     [HttpPost("create")]
-    public async Task<ActionResult<Product>> CreateProduct(ProductRequest req)
-
+    public async Task<ActionResult<ApiResponse<ProductResponse>>> CreateProduct(ProductRequest req)
     {
+        var category = await _context.Categories.FindAsync(req.CategoryId);
+        if (category == null)
+        {
+            return BadRequest(new ApiResponse<ProductResponse>
+            {
+                Success = false,
+                Message = "Category ID tidak ditemukan",
+                Data = null
+            });
+        }
+
         Product prod = new Product
         {
             ProductName = req.ProductName,
-            Stock = req.Stock
+            Stock = req.Stock ?? 0,
+            CategoryId = req.CategoryId
         };
+
         _context.Products.Add(prod);
         await _context.SaveChangesAsync();
-        return Ok(prod);
+
+        // reload dulu data prodcut buat get category 
+        await _context.Entry(prod).Reference(p => p.Category).LoadAsync();
+
+        var response = new ProductResponse
+        {
+            Id = prod.Id,
+            ProductName = prod.ProductName,
+            Stock = prod.Stock,
+            CategoryId = prod.CategoryId,
+            CategoryName = prod.Category?.CategoryName
+        };
+
+        return Ok(new ApiResponse<ProductResponse>
+        {
+            Success = true,
+            Message = "Sukses membuat produk baru",
+            Data = response
+        });
+    }
+
+    [HttpPatch("{id}")]
+    public async Task<ActionResult<ApiResponse<ProductResponse>>> UpdateProduct(Guid id, ProductRequest req)
+    {
+        var product = await _context.Products.FindAsync(id);
+
+        if (product == null)
+        {
+            return NotFound(new ApiResponse<ProductResponse>
+            {
+                Success = false,
+                Message = "Produk tidak ditemukan",
+                Data = null
+            });
+        }
+
+        if (req.ProductName != null)
+        {
+            product.ProductName = req.ProductName;
+        }
+
+        // Jika CategoryId berubah, validasi dulu
+        if (req.CategoryId != Guid.Empty && req.CategoryId != product.CategoryId)
+        {
+            var category = await _context.Categories.FindAsync(req.CategoryId);
+            if (category == null)
+            {
+                return BadRequest(new ApiResponse<ProductResponse>
+                {
+                    Success = false,
+                    Message = "Category ID baru tidak ditemukan",
+                    Data = null
+                });
+            }
+            product.CategoryId = req.CategoryId;
+        }
+
+        await _context.SaveChangesAsync();
+
+        await _context.Entry(product).Reference(p => p.Category).LoadAsync();
+
+        var response = new ProductResponse
+        {
+            Id = product.Id,
+            ProductName = product.ProductName,
+            Stock = product.Stock,
+            CategoryId = product.CategoryId,
+            CategoryName = product.Category?.CategoryName
+        };
+
+        return Ok(new ApiResponse<ProductResponse>
+        {
+            Success = true,
+            Message = "Sukses update produk",
+            Data = response
+        });
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteProduct(Guid id)
+    {
+        var product = await _context.Products.FindAsync(id);
+        if (product == null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Produk tidak ditemukan",
+                Data = null
+            });
+        }
+
+        _context.Products.Remove(product);
+        await _context.SaveChangesAsync();
+
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = "Produk berhasil dihapus",
+            Data = null
+        });
     }
 }

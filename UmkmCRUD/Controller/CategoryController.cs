@@ -21,7 +21,8 @@ public class CategoryController : ControllerBase
         var response = categories.Select(c => new CategoryResponse
         {
             Id = c.Id,
-            CategoryName = c.CategoryName
+            CategoryName = c.CategoryName,
+            Description = c.Description
         }).ToList();
 
         return Ok(new ApiResponse<IEnumerable<CategoryResponse>>
@@ -39,7 +40,8 @@ public class CategoryController : ControllerBase
     {
         var category = new Category
         {
-            CategoryName = req.CategoryName
+            CategoryName = req.CategoryName,
+            Description = req.Decription
         };
 
         _context.Categories.Add(category);
@@ -48,7 +50,8 @@ public class CategoryController : ControllerBase
         var response = new CategoryResponse
         {
             Id = category.Id,
-            CategoryName = category.CategoryName
+            CategoryName = category.CategoryName,
+            Description = category.Description
         };
 
         return Ok(new ApiResponse<CategoryResponse>
@@ -100,7 +103,8 @@ public class CategoryController : ControllerBase
         CategoryResponse result = new CategoryResponse
         {
             Id = category.Id,
-            CategoryName = category.CategoryName
+            CategoryName = category.CategoryName,
+            Description = category.Description
         };
 
         return Ok(new ApiResponse<CategoryResponse>
@@ -136,7 +140,8 @@ public class CategoryController : ControllerBase
         CategoryResponse result = new CategoryResponse
         {
             Id = category.Id,
-            CategoryName = category.CategoryName
+            CategoryName = category.CategoryName,
+            Description = category.Description
         };
 
         return Ok(new ApiResponse<CategoryResponse>
