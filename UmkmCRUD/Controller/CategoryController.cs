@@ -75,10 +75,76 @@ public class CategoryController : ControllerBase
         }
 
         _context.Categories.Remove(category);
+        await _context.SaveChangesAsync();
         return Ok(new ApiResponse<object>
         {
             Success = true,
             Message = "Category deleted successfully"
         });
     }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ApiResponse<CategoryResponse>>> GetCategoryByID(Guid id)
+    {
+        Category? category = await _context.Categories.FindAsync(id);
+        if (category == null)
+        {
+            return NotFound(new ApiResponse<CategoryResponse>
+            {
+                Success = false,
+                Message = "tidak ditemukan datanya",
+                Data = null
+            });
+        }
+
+        CategoryResponse result = new CategoryResponse
+        {
+            Id = category.Id,
+            CategoryName = category.CategoryName
+        };
+
+        return Ok(new ApiResponse<CategoryResponse>
+        {
+            Success = true,
+            Message = "sukses mengambil data",
+            Data = result
+        });
+    }
+
+    [HttpPatch("{id}")]
+    public async Task<ActionResult<ApiResponse<CategoryResponse>>> UpdateCategory(Guid id, CategoryRequest request)
+    {
+        Category? category = await _context.Categories.FindAsync(id);
+
+        if (category == null)
+        {
+            return NotFound(new ApiResponse<CategoryResponse>
+            {
+                Success = false,
+                Message = "tidak ditemukan datanya",
+                Data = null
+            });
+        }
+
+        if (request.CategoryName != null)
+        {
+            category.CategoryName = request.CategoryName;
+        }
+
+        await _context.SaveChangesAsync();
+
+        CategoryResponse result = new CategoryResponse
+        {
+            Id = category.Id,
+            CategoryName = category.CategoryName
+        };
+
+        return Ok(new ApiResponse<CategoryResponse>
+        {
+            Success = true,
+            Message = "sukses update kategori",
+            Data = result,
+        });
+    }
+
 }
