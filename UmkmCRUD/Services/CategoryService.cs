@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
 public class CategoryService : ICategoryService
@@ -37,5 +38,36 @@ public class CategoryService : ICategoryService
         };
 
         return response;
+    }
+
+    public async Task<CategoryResponse> GetCategoryByID(Guid id)
+    {
+        Category? category = await _context.Categories.FindAsync(id);
+        if (category == null)
+        {
+            return null;
+        }
+
+        CategoryResponse result = new CategoryResponse
+        {
+            Id = category.Id,
+            CategoryName = category.CategoryName,
+            Description = category.Description
+        };
+
+        return result;
+    }
+
+    public async Task<object> DeleteCategory(Guid id)
+    {
+        Category? category = await _context.Categories.FindAsync(id);
+        if (category == null)
+        {
+            return false;
+        }
+
+        _context.Categories.Remove(category);
+        await _context.SaveChangesAsync();
+        return true;
     }
 }

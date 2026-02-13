@@ -50,58 +50,39 @@ public class CategoryController : ControllerBase
         });
     }
 
-    // [HttpDelete("{id}")]
-    // public async Task<ActionResult<ApiResponse<object>>> DeleteCategory(Guid id)
-    // {
-    //     Category? category = await _context.Categories.FindAsync(id);
+    [HttpDelete("{id}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteCategory(Guid id)
+    {
+        await _categoryService.DeleteCategory(id);
+        return Ok(new ApiResponse<object>
+        {
+            Success = true,
+            Message = "Category deleted successfully"
+        });
+    }
 
-    //     if (category == null)
-    //     {
-    //         return NotFound(new ApiResponse<object>
-    //         {
-    //             Success = false,
-    //             Message = "Category not found",
-    //             Data = null
-    //         });
-    //     }
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ApiResponse<CategoryResponse>>> GetCategoryByID(Guid id)
+    {
+        var result = await _categoryService.GetCategoryByID(id);
 
-    //     _context.Categories.Remove(category);
-    //     await _context.SaveChangesAsync();
-    //     return Ok(new ApiResponse<object>
-    //     {
-    //         Success = true,
-    //         Message = "Category deleted successfully"
-    //     });
-    // }
+        if (result == null)
+        {
+            return NotFound(new ApiResponse<CategoryResponse>
+            {
+                Success = false,
+                Message = "Data tidak ditemukan",
+                Data = result
+            });
+        }
 
-    // [HttpGet("{id}")]
-    // public async Task<ActionResult<ApiResponse<CategoryResponse>>> GetCategoryByID(Guid id)
-    // {
-    //     Category? category = await _context.Categories.FindAsync(id);
-    //     if (category == null)
-    //     {
-    //         return NotFound(new ApiResponse<CategoryResponse>
-    //         {
-    //             Success = false,
-    //             Message = "tidak ditemukan datanya",
-    //             Data = null
-    //         });
-    //     }
-
-    //     CategoryResponse result = new CategoryResponse
-    //     {
-    //         Id = category.Id,
-    //         CategoryName = category.CategoryName,
-    //         Description = category.Description
-    //     };
-
-    //     return Ok(new ApiResponse<CategoryResponse>
-    //     {
-    //         Success = true,
-    //         Message = "sukses mengambil data",
-    //         Data = result
-    //     });
-    // }
+        return Ok(new ApiResponse<CategoryResponse>
+        {
+            Success = true,
+            Message = "sukses mengambil data",
+            Data = result
+        });
+    }
 
     // [HttpPatch("{id}")]
     // public async Task<ActionResult<ApiResponse<CategoryResponse>>> UpdateCategory(Guid id, CategoryRequest request)
