@@ -2,6 +2,8 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using UmkmCRUD.Services;
+using UmkmCRUD.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +20,7 @@ builder.Services.AddControllers();
 builder.Services.AddScoped<ProductController>();
 builder.Services.AddScoped<CategoryController>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
