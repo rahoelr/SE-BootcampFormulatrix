@@ -70,4 +70,35 @@ public class CategoryService : ICategoryService
         await _context.SaveChangesAsync();
         return true;
     }
+
+    public async Task<CategoryResponse> UpdateCategory(Guid id, CategoryRequest request)
+    {
+        Category? category = await _context.Categories.FindAsync(id);
+        if (category == null)
+        {
+            return null;
+        }
+
+        if (request.CategoryName != null)
+        {
+            category.CategoryName = request.CategoryName;
+        }
+
+        if (request.Description != null)
+        {
+            category.Description = request.Description;
+        }
+
+        await _context.SaveChangesAsync();
+
+        CategoryResponse result = new CategoryResponse
+        {
+            Id = category.Id,
+            CategoryName = category.CategoryName,
+            Description = category.Description
+        };
+
+        return result;
+
+    }
 }

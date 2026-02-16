@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 public class CategoryController : ControllerBase
 {
     public ICategoryService _categoryService;
-    public CategoryController (ICategoryService categoryService){
+    public CategoryController(ICategoryService categoryService)
+    {
         _categoryService = categoryService;
     }
 
@@ -84,41 +85,22 @@ public class CategoryController : ControllerBase
         });
     }
 
-    // [HttpPatch("{id}")]
-    // public async Task<ActionResult<ApiResponse<CategoryResponse>>> UpdateCategory(Guid id, CategoryRequest request)
-    // {
-    //     Category? category = await _context.Categories.FindAsync(id);
+    [HttpPatch("{id}")]
+    public async Task<ActionResult<ApiResponse<CategoryResponse>>> UpdateCategory(Guid id, CategoryRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
 
-    //     if (category == null)
-    //     {
-    //         return NotFound(new ApiResponse<CategoryResponse>
-    //         {
-    //             Success = false,
-    //             Message = "tidak ditemukan datanya",
-    //             Data = null
-    //         });
-    //     }
+        CategoryResponse response = await _categoryService.UpdateCategory(id, request);
 
-    //     if (request.CategoryName != null)
-    //     {
-    //         category.CategoryName = request.CategoryName;
-    //     }
-
-    //     await _context.SaveChangesAsync();
-
-    //     CategoryResponse result = new CategoryResponse
-    //     {
-    //         Id = category.Id,
-    //         CategoryName = category.CategoryName,
-    //         Description = category.Description
-    //     };
-
-    //     return Ok(new ApiResponse<CategoryResponse>
-    //     {
-    //         Success = true,
-    //         Message = "sukses update kategori",
-    //         Data = result,
-    //     });
-    // }
+        return Ok(new ApiResponse<CategoryResponse>
+        {
+            Success = true,
+            Message = "Sukses update kategori baru nih",
+            Data = response
+        });
+    }
 
 }
