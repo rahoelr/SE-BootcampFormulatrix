@@ -5,8 +5,6 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{39544A43-F7C9-42DE-8D23-99F6DB3EAF61}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp2", "ConsoleApp2\ConsoleApp2.csproj", "{91F1A247-A5AA-4086-8901-37A772F69B9D}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FooBar", "FooBar\FooBar.csproj", "{E070E038-CE0F-4BCB-8C98-5A566EC5D48A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Learn", "Learn\Learn.csproj", "{904AB07F-CB2C-4619-AD43-AE383929BE47}"
@@ -19,15 +17,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleParkingApp", "SimpleP
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderFoodApp", "OrderFoodApp\OrderFoodApp.csproj", "{BEF5C575-0699-439C-8352-1CE61CBC5E47}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GymApp", "GymApp\GymApp.csproj", "{8F96AE0E-A1FD-4609-BD38-34819FF708BB}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleCRUD", "SimpleCRUD\SimpleCRUD.csproj", "{A2FF44FF-E322-40A9-B74A-222D89AAFCB3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleBankingApp", "SimpleBankingApp\SimpleBankingApp.csproj", "{86389DCA-E30F-4A1F-92AA-87B4C3D0FE9C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasicDelegate", "BasicDelegate\BasicDelegate.csproj", "{44F75FA3-5B0C-468E-8441-02F345010748}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventHandlerBasic", "EventHandlerBasic\EventHandlerBasic.csproj", "{4ACFB1FD-7C1E-40C1-85D6-F1BFF0CD7F46}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TryCatchBasic", "TryCatchBasic\TryCatchBasic.csproj", "{8E52BE5E-1592-47E9-AC6C-8BEC9D578746}"
 EndProject
