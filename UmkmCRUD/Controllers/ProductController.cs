@@ -89,7 +89,7 @@ public class ProductController : ControllerBase
         {
             return BadRequest(ModelState);
         }
-        
+
         var result = await _productService.DeleteProduct(id);
         return Ok(new ApiResponse<object>
         {
