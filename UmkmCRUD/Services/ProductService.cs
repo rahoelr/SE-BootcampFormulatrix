@@ -81,5 +81,62 @@ namespace UmkmCRUD.Services
 
             return response;
         }
+
+        public async Task<object> DeleteProduct(Guid id)
+        {
+            var product = await _appDbContext.Products.FindAsync(id);
+            if(product == null)
+            {
+                return false;
+            }
+
+            _appDbContext.Products.Remove(product);
+            await _appDbContext.SaveChangesAsync();
+
+            return true;
+        }
+
+        public async Task<ProductResponse> UpdateProduct(Guid id, ProductRequest request)
+        {
+            var product = await _appDbContext.Products.Include(p => p.Category).FirstOrDefaultAsync(p => p.Id == id);
+
+            if (product == null)
+            {
+                return null;
+            }
+
+            if (request.ProductName != null)
+            {
+                product.ProductName = request.ProductName;
+            }
+
+            if (request.Stock.HasValue)
+            {
+                product.Stock = request.Stock.Value;
+            }
+
+            if (request.CategoryId != Guid.Empty && request.CategoryId != product.CategoryId)
+            {
+                var category = await _appDbContext.Categories.FindAsync(request.CategoryId);
+                if (category == null)
+                {
+                    return null;
+                }
+                product.CategoryId = request.CategoryId;
+                await _appDbContext.Entry(product).Reference(p => p.Category).LoadAsync();
+            }
+
+            await _appDbContext.SaveChangesAsync();
+
+            var response = new ProductResponse
+            {
+                Id = product.Id,
+                ProductName = product.ProductName,
+                Stock = product.Stock,
+                CategoryId = product.CategoryId,
+                CategoryName = product.Category?.CategoryName
+            };
+            return response;
+        }
     }
 }
