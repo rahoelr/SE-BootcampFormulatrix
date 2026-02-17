@@ -1,20 +1,22 @@
 using UmkmCRUD.Services.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using UmkmCRUD.Repository.Interfaces;
 
 namespace UmkmCRUD.Services
 {
     public class ProductService : IProductService
     {
-        private readonly AppDbContext _appDbContext;
+        private readonly IProductRepository _productRepository;
+        private readonly ICategoryRepository _categoryRepository;
 
-        public ProductService(AppDbContext appDbContext)
+        public ProductService(IProductRepository productRepository, ICategoryRepository categoryRepository)
         {
-            _appDbContext = appDbContext;
+            _productRepository = productRepository;
+            _categoryRepository = categoryRepository;
         }
 
         public async Task<IEnumerable<ProductResponse>> GetProducts()
         {
-            var products = await _appDbContext.Products.Include(p => p.Category).ToListAsync();
+            var products = await _productRepository.GetAllAsync();
 
             var response = products.Select(p => new ProductResponse
             {
@@ -30,8 +32,7 @@ namespace UmkmCRUD.Services
 
         public async Task<ProductResponse> CreateProduct(ProductRequest request)
         {
-            var categoryExists = await _appDbContext.Categories
-                .AnyAsync(x => x.Id == request.CategoryId);
+            var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId);
 
             if (!categoryExists)
             {
@@ -45,10 +46,8 @@ namespace UmkmCRUD.Services
                 CategoryId = request.CategoryId
             };
 
-            _appDbContext.Products.Add(prod);
-            await _appDbContext.SaveChangesAsync();
-
-            await _appDbContext.Entry(prod).Reference(p => p.Category).LoadAsync();
+            await _productRepository.AddAsync(prod);
+            await _productRepository.LoadCategoryAsync(prod);
 
             var response = new ProductResponse
             {
@@ -64,7 +63,7 @@ namespace UmkmCRUD.Services
 
         public async Task<ProductResponse> GetProductById(Guid id)
         {
-            var product = await _appDbContext.Products.Include(p => p.Category).FirstOrDefaultAsync(p => p.Id == id);
+            var product = await _productRepository.GetByIdAsync(id);
 
             if (product == null)
             {
@@ -85,21 +84,20 @@ namespace UmkmCRUD.Services
 
         public async Task<object> DeleteProduct(Guid id)
         {
-            var product = await _appDbContext.Products.FindAsync(id);
+            var product = await _productRepository.GetByIdAsync(id);
             if (product == null)
             {
                 return false;
             }
 
-            _appDbContext.Products.Remove(product);
-            await _appDbContext.SaveChangesAsync();
+            await _productRepository.DeleteAsync(product);
 
             return true;
         }
 
         public async Task<ProductResponse> UpdateProduct(Guid id, ProductRequest request)
         {
-            var product = await _appDbContext.Products.Include(p => p.Category).FirstOrDefaultAsync(p => p.Id == id);
+            var product = await _productRepository.GetByIdAsync(id);
 
             if (product == null)
             {
@@ -118,16 +116,19 @@ namespace UmkmCRUD.Services
 
             if (request.CategoryId != Guid.Empty && request.CategoryId != product.CategoryId)
             {
-                var category = await _appDbContext.Categories.FindAsync(request.CategoryId);
-                if (category == null)
+                var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId);
+                if (!categoryExists)
                 {
                     return null;
                 }
                 product.CategoryId = request.CategoryId;
-                await _appDbContext.Entry(product).Reference(p => p.Category).LoadAsync();
+                await _productRepository.UpdateAsync(product);
+                await _productRepository.LoadCategoryAsync(product);
             }
-
-            await _appDbContext.SaveChangesAsync();
+            else
+            {
+                await _productRepository.UpdateAsync(product);
+            }
 
             var response = new ProductResponse
             {

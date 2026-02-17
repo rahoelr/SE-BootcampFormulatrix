@@ -1,18 +1,17 @@
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.EntityFrameworkCore;
+using UmkmCRUD.Repository.Interfaces;
 
 public class CategoryService : ICategoryService
 {
-    private readonly AppDbContext _context;
+    private readonly ICategoryRepository _categoryRepository;
 
-    public CategoryService(AppDbContext context)
+    public CategoryService(ICategoryRepository categoryRepository)
     {
-        _context = context;
+        _categoryRepository = categoryRepository;
     }
 
     public async Task<IEnumerable<CategoryResponse>> GetAllCategory()
     {
-        var categories = await _context.Categories.ToListAsync();
+        var categories = await _categoryRepository.GetAllAsync();
 
         return categories.Select(c => new CategoryResponse
         {
@@ -21,6 +20,7 @@ public class CategoryService : ICategoryService
             Description = c.Description
         });
     }
+
     public async Task<CategoryResponse> CreateCategory(CategoryRequest dto)
     {
         Category result = new Category
@@ -28,8 +28,8 @@ public class CategoryService : ICategoryService
             CategoryName = dto.CategoryName,
             Description = dto.Description
         };
-        _context.Categories.Add(result);
-        await _context.SaveChangesAsync();
+
+        await _categoryRepository.AddAsync(result);
 
         CategoryResponse response = new CategoryResponse
         {
@@ -43,7 +43,7 @@ public class CategoryService : ICategoryService
 
     public async Task<CategoryResponse> GetCategoryByID(Guid id)
     {
-        Category? category = await _context.Categories.FindAsync(id);
+        Category? category = await _categoryRepository.GetByIdAsync(id);
         if (category == null)
         {
             return null;
@@ -61,20 +61,19 @@ public class CategoryService : ICategoryService
 
     public async Task<object> DeleteCategory(Guid id)
     {
-        Category? category = await _context.Categories.FindAsync(id);
+        Category? category = await _categoryRepository.GetByIdAsync(id);
         if (category == null)
         {
             return false;
         }
 
-        _context.Categories.Remove(category);
-        await _context.SaveChangesAsync();
+        await _categoryRepository.DeleteAsync(category);
         return true;
     }
 
     public async Task<CategoryResponse> UpdateCategory(Guid id, CategoryRequest request)
     {
-        Category? category = await _context.Categories.FindAsync(id);
+        Category? category = await _categoryRepository.GetByIdAsync(id);
         if (category == null)
         {
             return null;
@@ -90,7 +89,7 @@ public class CategoryService : ICategoryService
             category.Description = request.Description;
         }
 
-        await _context.SaveChangesAsync();
+        await _categoryRepository.UpdateAsync(category);
 
         CategoryResponse result = new CategoryResponse
         {
@@ -100,6 +99,5 @@ public class CategoryService : ICategoryService
         };
 
         return result;
-
     }
 }

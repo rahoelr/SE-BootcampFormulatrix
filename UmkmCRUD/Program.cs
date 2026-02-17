@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using UmkmCRUD.Services;
 using UmkmCRUD.Services.Interfaces;
+using UmkmCRUD.Repository;
+using UmkmCRUD.Repository.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +32,8 @@ builder.Services.AddScoped<ProductController>();
 builder.Services.AddScoped<CategoryController>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
