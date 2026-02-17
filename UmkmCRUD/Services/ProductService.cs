@@ -1,6 +1,7 @@
 using UmkmCRUD.Services.Interfaces;
 using UmkmCRUD.Repository.Interfaces;
 using UmkmCRUD.Common;
+using AutoMapper;
 
 namespace UmkmCRUD.Services
 {
@@ -8,25 +9,20 @@ namespace UmkmCRUD.Services
     {
         private readonly IProductRepository _productRepository;
         private readonly ICategoryRepository _categoryRepository;
+        private readonly IMapper _mapper;
 
-        public ProductService(IProductRepository productRepository, ICategoryRepository categoryRepository)
+        public ProductService(IProductRepository productRepository, ICategoryRepository categoryRepository, IMapper mapper)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
+            _mapper = mapper;
         }
 
         public async Task<ServiceResult<IEnumerable<ProductResponse>>> GetProducts()
         {
             var products = await _productRepository.GetAllAsync();
 
-            var response = products.Select(p => new ProductResponse
-            {
-                Id = p.Id,
-                CategoryId = p.CategoryId,
-                ProductName = p.ProductName,
-                Stock = p.Stock,
-                CategoryName = p.Category?.CategoryName
-            }).ToList();
+            var response = _mapper.Map<IEnumerable<ProductResponse>>(products);
 
             return ServiceResult<IEnumerable<ProductResponse>>.Success(response);
         }
@@ -37,27 +33,19 @@ namespace UmkmCRUD.Services
 
             if (!categoryExists)
             {
-                return ServiceResult<ProductResponse>.Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
+                return ServiceResult<ProductResponse>
+                    .Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
             }
 
-            Product prod = new Product
-            {
-                ProductName = request.ProductName,
-                Stock = request.Stock ?? 0,
-                CategoryId = request.CategoryId
-            };
+            var product = _mapper.Map<Product>(request);
 
-            await _productRepository.AddAsync(prod);
-            await _productRepository.LoadCategoryAsync(prod);
+            if (request.Stock.HasValue)
+                product.Stock = request.Stock.Value;
 
-            var response = new ProductResponse
-            {
-                Id = prod.Id,
-                ProductName = prod.ProductName,
-                Stock = prod.Stock,
-                CategoryId = prod.CategoryId,
-                CategoryName = prod.Category?.CategoryName
-            };
+            await _productRepository.AddAsync(product);
+            await _productRepository.LoadCategoryAsync(product);
+
+            var response = _mapper.Map<ProductResponse>(product);
 
             return ServiceResult<ProductResponse>.Success(response);
         }
@@ -71,14 +59,7 @@ namespace UmkmCRUD.Services
                 return ServiceResult<ProductResponse>.Fail(new ServiceError(ErrorType.NotFound, "Product not found"));
             }
 
-            var response = new ProductResponse
-            {
-                Id = product.Id,
-                ProductName = product.ProductName,
-                Stock = product.Stock,
-                CategoryId = product.CategoryId,
-                CategoryName = product.Category?.CategoryName
-            };
+            var response = _mapper.Map<ProductResponse>(product);
 
             return ServiceResult<ProductResponse>.Success(response);
         }
@@ -131,14 +112,7 @@ namespace UmkmCRUD.Services
                 await _productRepository.UpdateAsync(product);
             }
 
-            var response = new ProductResponse
-            {
-                Id = product.Id,
-                ProductName = product.ProductName,
-                Stock = product.Stock,
-                CategoryId = product.CategoryId,
-                CategoryName = product.Category?.CategoryName
-            };
+            var response = _mapper.Map<ProductResponse>(product);
             return ServiceResult<ProductResponse>.Success(response);
         }
     }
