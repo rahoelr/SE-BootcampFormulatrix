@@ -4,5 +4,6 @@ namespace UmkmCRUD.Services.Interfaces
     {
         Task<ProductResponse> CreateProduct(ProductRequest request);
         Task<IEnumerable<ProductResponse>> GetProducts();
+        Task<ProductResponse> GetProductById(Guid id);
     }
 }

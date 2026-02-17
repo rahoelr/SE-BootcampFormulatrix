@@ -25,37 +25,18 @@ public class ProductController : ControllerBase
         });
     }
 
-    // [HttpGet("{id}")]
-    // public async Task<ActionResult<ApiResponse<ProductResponse>>> GetProductById(Guid id)
-    // {
-    //     var product = await _context.Products.Include(p => p.Category).FirstOrDefaultAsync(p => p.Id == id);
+    [HttpGet("{id}")]
+    public async Task<ActionResult<ApiResponse<ProductResponse>>> GetProductById(Guid id)
+    {
+        ProductResponse response = await _productService.GetProductById(id);
 
-    //     if (product == null)
-    //     {
-    //         return NotFound(new ApiResponse<ProductResponse>
-    //         {
-    //             Success = false,
-    //             Message = "Produk tidak ditemukan",
-    //             Data = null
-    //         });
-    //     }
-
-    //     var response = new ProductResponse
-    //     {
-    //         Id = product.Id,
-    //         ProductName = product.ProductName,
-    //         Stock = product.Stock,
-    //         CategoryId = product.CategoryId,
-    //         CategoryName = product.Category?.CategoryName
-    //     };
-
-    //     return Ok(new ApiResponse<ProductResponse>
-    //     {
-    //         Success = true,
-    //         Message = "Sukses mengambil data produk",
-    //         Data = response
-    //     });
-    // }
+        return Ok(new ApiResponse<ProductResponse>
+        {
+            Success = true,
+            Message = "Sukses mengambil data produk",
+            Data = response
+        });
+    }
 
     [HttpPost("create")]
     public async Task<ActionResult<ApiResponse<ProductResponse>>> CreateProduct(ProductRequest req)

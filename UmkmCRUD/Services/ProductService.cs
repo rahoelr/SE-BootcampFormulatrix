@@ -60,5 +60,26 @@ namespace UmkmCRUD.Services
 
             return response;
         }
+
+        public async Task<ProductResponse> GetProductById(Guid id)
+        {
+            var product = await _appDbContext.Products.Include(p => p.Category).FirstOrDefaultAsync(p => p.Id == id);
+
+            if (product == null)
+            {
+                return null;
+            }
+
+            var response = new ProductResponse
+            {
+                Id = product.Id,
+                ProductName = product.ProductName,
+                Stock = product.Stock,
+                CategoryId = product.CategoryId,
+                CategoryName = product.Category?.CategoryName
+            };
+
+            return response;
+        }
     }
 }
