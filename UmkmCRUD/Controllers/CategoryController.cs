@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UmkmCRUD.Common;
@@ -5,6 +6,7 @@ using UmkmCRUD.Common;
 // [Route("api/[controller]")]
 [Route("api/category")]
 [ApiController]
+[Authorize]
 public class CategoryController : ControllerBase
 {
     public ICategoryService _categoryService;

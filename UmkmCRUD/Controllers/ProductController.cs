@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UmkmCRUD.Common;
@@ -6,6 +7,7 @@ using UmkmCRUD.Services.Interfaces;
 // [Route("api/[controller]")]
 [Route("api/product")]
 [ApiController]
+[Authorize]
 public class ProductController : ControllerBase
 {
     private IProductService _productService;
