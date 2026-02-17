@@ -16,6 +16,11 @@ public class ProductController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<ProductResponse>>>> GetProduct()
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         IEnumerable<ProductResponse> result = await _productService.GetProducts();
         return Ok(new ApiResponse<IEnumerable<ProductResponse>>
         {
@@ -28,6 +33,11 @@ public class ProductController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<ApiResponse<ProductResponse>>> GetProductById(Guid id)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         ProductResponse response = await _productService.GetProductById(id);
 
         return Ok(new ApiResponse<ProductResponse>
@@ -41,6 +51,11 @@ public class ProductController : ControllerBase
     [HttpPost("create")]
     public async Task<ActionResult<ApiResponse<ProductResponse>>> CreateProduct(ProductRequest req)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         ProductResponse result = await _productService.CreateProduct(req);
         return Ok(new ApiResponse<ProductResponse>
         {
@@ -53,6 +68,11 @@ public class ProductController : ControllerBase
     [HttpPatch("{id}")]
     public async Task<ActionResult<ApiResponse<ProductResponse>>> UpdateProduct(Guid id, ProductRequest req)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
         ProductResponse response = await _productService.UpdateProduct(id, req);
         return Ok(new ApiResponse<ProductResponse>
         {
@@ -65,6 +85,11 @@ public class ProductController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteProduct(Guid id)
     {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+        
         var result = await _productService.DeleteProduct(id);
         return Ok(new ApiResponse<object>
         {

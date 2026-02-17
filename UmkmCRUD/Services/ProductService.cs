@@ -30,11 +30,12 @@ namespace UmkmCRUD.Services
 
         public async Task<ProductResponse> CreateProduct(ProductRequest request)
         {
-            Category? category = await _appDbContext.Categories.FindAsync(request.CategoryId);
+            var categoryExists = await _appDbContext.Categories
+                .AnyAsync(x => x.Id == request.CategoryId);
 
-            if (category == null)
+            if (!categoryExists)
             {
-                return null;
+                throw new Exception("Category not found");
             }
 
             Product prod = new Product
@@ -85,7 +86,7 @@ namespace UmkmCRUD.Services
         public async Task<object> DeleteProduct(Guid id)
         {
             var product = await _appDbContext.Products.FindAsync(id);
-            if(product == null)
+            if (product == null)
             {
                 return false;
             }

@@ -1,5 +1,6 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using UmkmCRUD.Services;
@@ -12,8 +13,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
+// builder.Services.AddValidatorsFromAssemblyContaining<CategoryCreateValidator>();
+// builder.Services.AddValidatorsFromAssemblyContaining<ProductCreateValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
-builder.Services.AddValidatorsFromAssemblyContaining<CategoryCreateValidator>();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+});
+
+builder.Services.AddControllers();
 
 
 builder.Services.AddControllers();
