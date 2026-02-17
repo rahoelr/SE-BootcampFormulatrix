@@ -6,7 +6,6 @@ using UmkmCRUD.Common;
 // [Route("api/[controller]")]
 [Route("api/category")]
 [ApiController]
-[Authorize]
 public class CategoryController : ControllerBase
 {
     public ICategoryService _categoryService;
@@ -38,7 +37,7 @@ public class CategoryController : ControllerBase
         });
     }
 
-
+    [Authorize]
     [HttpPost("create")]
     public async Task<ActionResult<ApiResponse<CategoryResponse>>> CreateCategory(CategoryRequest req)
     {
