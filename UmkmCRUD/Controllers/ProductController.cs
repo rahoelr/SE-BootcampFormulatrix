@@ -57,49 +57,17 @@ public class ProductController : ControllerBase
     //     });
     // }
 
-    // [HttpPost("create")]
-    // public async Task<ActionResult<ApiResponse<ProductResponse>>> CreateProduct(ProductRequest req)
-    // {
-    //     var category = await _context.Categories.FindAsync(req.CategoryId);
-    //     if (category == null)
-    //     {
-    //         return BadRequest(new ApiResponse<ProductResponse>
-    //         {
-    //             Success = false,
-    //             Message = "Category ID tidak ditemukan",
-    //             Data = null
-    //         });
-    //     }
-
-    //     Product prod = new Product
-    //     {
-    //         ProductName = req.ProductName,
-    //         Stock = req.Stock ?? 0,
-    //         CategoryId = req.CategoryId
-    //     };
-
-    //     _context.Products.Add(prod);
-    //     await _context.SaveChangesAsync();
-
-    //     // reload dulu data prodcut buat get category 
-    //     await _context.Entry(prod).Reference(p => p.Category).LoadAsync();
-
-    //     var response = new ProductResponse
-    //     {
-    //         Id = prod.Id,
-    //         ProductName = prod.ProductName,
-    //         Stock = prod.Stock,
-    //         CategoryId = prod.CategoryId,
-    //         CategoryName = prod.Category?.CategoryName
-    //     };
-
-    //     return Ok(new ApiResponse<ProductResponse>
-    //     {
-    //         Success = true,
-    //         Message = "Sukses membuat produk baru",
-    //         Data = response
-    //     });
-    // }
+    [HttpPost("create")]
+    public async Task<ActionResult<ApiResponse<ProductResponse>>> CreateProduct(ProductRequest req)
+    {
+        ProductResponse result  = await _productService.CreateProduct(req);
+        return Ok(new ApiResponse<ProductResponse>
+        {
+            Success = true,
+            Message = "Sukses membuat produk baru",
+            Data = result
+        });
+    }
 
     // [HttpPatch("{id}")]
     // public async Task<ActionResult<ApiResponse<ProductResponse>>> UpdateProduct(Guid id, ProductRequest req)

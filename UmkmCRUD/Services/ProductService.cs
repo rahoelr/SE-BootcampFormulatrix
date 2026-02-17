@@ -27,5 +27,38 @@ namespace UmkmCRUD.Services
 
             return response;
         }
+
+        public async Task<ProductResponse> CreateProduct(ProductRequest request)
+        {
+            Category? category = await _appDbContext.Categories.FindAsync(request.CategoryId);
+
+            if (category == null)
+            {
+                return null;
+            }
+
+            Product prod = new Product
+            {
+                ProductName = request.ProductName,
+                Stock = request.Stock ?? 0,
+                CategoryId = request.CategoryId
+            };
+
+            _appDbContext.Products.Add(prod);
+            await _appDbContext.SaveChangesAsync();
+
+            await _appDbContext.Entry(prod).Reference(p => p.Category).LoadAsync();
+
+            var response = new ProductResponse
+            {
+                Id = prod.Id,
+                ProductName = prod.ProductName,
+                Stock = prod.Stock,
+                CategoryId = prod.CategoryId,
+                CategoryName = prod.Category?.CategoryName
+            };
+
+            return response;
+        }
     }
 }

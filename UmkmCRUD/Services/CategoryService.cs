@@ -33,6 +33,7 @@ public class CategoryService : ICategoryService
 
         CategoryResponse response = new CategoryResponse
         {
+            Id = result.Id,
             CategoryName = result.CategoryName,
             Description = result.Description
         };
