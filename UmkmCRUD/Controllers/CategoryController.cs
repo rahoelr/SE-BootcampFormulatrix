@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using UmkmCRUD.Common;
 
 // [Route("api/[controller]")]
 [Route("api/category")]
@@ -15,46 +16,74 @@ public class CategoryController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<CategoryResponse>>>> GetCategory()
     {
-        if (!ModelState.IsValid)
+        var result = await _categoryService.GetAllCategory();
+
+        if (!result.IsSuccess)
         {
-            return BadRequest(ModelState);
+            return BadRequest(new ApiResponse<IEnumerable<CategoryResponse>>
+            {
+                Success = false,
+                Message = result.Error?.Message,
+                Data = null
+            });
         }
-
-        IEnumerable<CategoryResponse> response = await _categoryService.GetAllCategory();
-
 
         return Ok(new ApiResponse<IEnumerable<CategoryResponse>>
         {
             Success = true,
             Message = "Sukses mengambil data kategori",
-            Data = response
+            Data = result.Data
         });
     }
 
 
     [HttpPost("create")]
     public async Task<ActionResult<ApiResponse<CategoryResponse>>> CreateCategory(CategoryRequest req)
-
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Validation failed",
+                Data = ModelState
+            });
         }
 
-        CategoryResponse response = await _categoryService.CreateCategory(req);
+        ServiceResult<CategoryResponse> response = await _categoryService.CreateCategory(req);
+
+        if (!response.IsSuccess)
+        {
+            return BadRequest(new ApiResponse<CategoryResponse>
+            {
+                Success = false,
+                Message = response.Error?.Message,
+                Data = null
+            });
+        }
 
         return Ok(new ApiResponse<CategoryResponse>
         {
             Success = true,
             Message = "Sukses membuat kategori baru nih",
-            Data = response
+            Data = response.Data
         });
     }
 
     [HttpDelete("{id}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteCategory(Guid id)
     {
-        await _categoryService.DeleteCategory(id);
+        var result = await _categoryService.DeleteCategory(id);
+
+        if (!result.IsSuccess)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Error?.Message
+            });
+        }
+
         return Ok(new ApiResponse<object>
         {
             Success = true,
@@ -67,21 +96,20 @@ public class CategoryController : ControllerBase
     {
         var result = await _categoryService.GetCategoryByID(id);
 
-        if (result == null)
+        if (!result.IsSuccess)
         {
             return NotFound(new ApiResponse<CategoryResponse>
             {
                 Success = false,
-                Message = "Data tidak ditemukan",
-                Data = result
+                Message = result.Error?.Message
             });
         }
 
         return Ok(new ApiResponse<CategoryResponse>
         {
             Success = true,
-            Message = "sukses mengambil data",
-            Data = result
+            Message = "Sukses mengambil data kategori",
+            Data = result.Data
         });
     }
 
@@ -90,16 +118,30 @@ public class CategoryController : ControllerBase
     {
         if (!ModelState.IsValid)
         {
-            return BadRequest(ModelState);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Validation failed",
+                Data = ModelState
+            });
         }
 
-        CategoryResponse response = await _categoryService.UpdateCategory(id, request);
+        var result = await _categoryService.UpdateCategory(id, request);
+
+        if (!result.IsSuccess)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = result.Error?.Message
+            });
+        }
 
         return Ok(new ApiResponse<CategoryResponse>
         {
             Success = true,
-            Message = "Sukses update kategori baru nih",
-            Data = response
+            Message = "Sukses update kategori",
+            Data = result.Data
         });
     }
 

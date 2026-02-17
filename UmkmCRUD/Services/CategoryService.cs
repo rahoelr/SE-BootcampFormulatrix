@@ -1,3 +1,4 @@
+using UmkmCRUD.Common;
 using UmkmCRUD.Repository.Interfaces;
 
 public class CategoryService : ICategoryService
@@ -9,19 +10,21 @@ public class CategoryService : ICategoryService
         _categoryRepository = categoryRepository;
     }
 
-    public async Task<IEnumerable<CategoryResponse>> GetAllCategory()
+    public async Task<ServiceResult<IEnumerable<CategoryResponse>>> GetAllCategory()
     {
         var categories = await _categoryRepository.GetAllAsync();
 
-        return categories.Select(c => new CategoryResponse
+        var result = categories.Select(c => new CategoryResponse
         {
             Id = c.Id,
             CategoryName = c.CategoryName,
             Description = c.Description
         });
+
+        return ServiceResult<IEnumerable<CategoryResponse>>.Success(result);
     }
 
-    public async Task<CategoryResponse> CreateCategory(CategoryRequest dto)
+    public async Task<ServiceResult<CategoryResponse>> CreateCategory(CategoryRequest dto)
     {
         Category result = new Category
         {
@@ -38,15 +41,15 @@ public class CategoryService : ICategoryService
             Description = result.Description
         };
 
-        return response;
+        return ServiceResult<CategoryResponse>.Success(response);
     }
 
-    public async Task<CategoryResponse> GetCategoryByID(Guid id)
+    public async Task<ServiceResult<CategoryResponse>> GetCategoryByID(Guid id)
     {
         Category? category = await _categoryRepository.GetByIdAsync(id);
         if (category == null)
         {
-            return null;
+            return ServiceResult<CategoryResponse>.Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
         }
 
         CategoryResponse result = new CategoryResponse
@@ -56,27 +59,27 @@ public class CategoryService : ICategoryService
             Description = category.Description
         };
 
-        return result;
+        return ServiceResult<CategoryResponse>.Success(result);
     }
 
-    public async Task<object> DeleteCategory(Guid id)
+    public async Task<ServiceResult<bool>> DeleteCategory(Guid id)
     {
         Category? category = await _categoryRepository.GetByIdAsync(id);
         if (category == null)
         {
-            return false;
+            return ServiceResult<bool>.Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
         }
 
         await _categoryRepository.DeleteAsync(category);
-        return true;
+        return ServiceResult<bool>.Success(true);
     }
 
-    public async Task<CategoryResponse> UpdateCategory(Guid id, CategoryRequest request)
+    public async Task<ServiceResult<CategoryResponse>> UpdateCategory(Guid id, CategoryRequest request)
     {
         Category? category = await _categoryRepository.GetByIdAsync(id);
         if (category == null)
         {
-            return null;
+            return ServiceResult<CategoryResponse>.Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
         }
 
         if (request.CategoryName != null)
@@ -98,6 +101,6 @@ public class CategoryService : ICategoryService
             Description = category.Description
         };
 
-        return result;
+        return ServiceResult<CategoryResponse>.Success(result);
     }
 }

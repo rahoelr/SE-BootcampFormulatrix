@@ -1,8 +1,10 @@
+using UmkmCRUD.Common;
+
 public interface ICategoryService
 {
-    Task<IEnumerable<CategoryResponse>> GetAllCategory();
-    Task<CategoryResponse> CreateCategory(CategoryRequest dto);
-    Task<CategoryResponse> GetCategoryByID(Guid id);
-    Task<object> DeleteCategory(Guid id);
-    Task<CategoryResponse> UpdateCategory(Guid id, CategoryRequest request);
+    Task<ServiceResult<IEnumerable<CategoryResponse>>> GetAllCategory();
+    Task<ServiceResult<CategoryResponse>> CreateCategory(CategoryRequest dto);
+    Task<ServiceResult<CategoryResponse>> GetCategoryByID(Guid id);
+    Task<ServiceResult<bool>> DeleteCategory(Guid id);
+    Task<ServiceResult<CategoryResponse>> UpdateCategory(Guid id, CategoryRequest request);
 }

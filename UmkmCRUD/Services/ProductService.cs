@@ -1,5 +1,6 @@
 using UmkmCRUD.Services.Interfaces;
 using UmkmCRUD.Repository.Interfaces;
+using UmkmCRUD.Common;
 
 namespace UmkmCRUD.Services
 {
@@ -14,7 +15,7 @@ namespace UmkmCRUD.Services
             _categoryRepository = categoryRepository;
         }
 
-        public async Task<IEnumerable<ProductResponse>> GetProducts()
+        public async Task<ServiceResult<IEnumerable<ProductResponse>>> GetProducts()
         {
             var products = await _productRepository.GetAllAsync();
 
@@ -27,16 +28,16 @@ namespace UmkmCRUD.Services
                 CategoryName = p.Category?.CategoryName
             }).ToList();
 
-            return response;
+            return ServiceResult<IEnumerable<ProductResponse>>.Success(response);
         }
 
-        public async Task<ProductResponse> CreateProduct(ProductRequest request)
+        public async Task<ServiceResult<ProductResponse>> CreateProduct(ProductRequest request)
         {
             var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId);
 
             if (!categoryExists)
             {
-                throw new Exception("Category not found");
+                return ServiceResult<ProductResponse>.Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
             }
 
             Product prod = new Product
@@ -58,16 +59,16 @@ namespace UmkmCRUD.Services
                 CategoryName = prod.Category?.CategoryName
             };
 
-            return response;
+            return ServiceResult<ProductResponse>.Success(response);
         }
 
-        public async Task<ProductResponse> GetProductById(Guid id)
+        public async Task<ServiceResult<ProductResponse>> GetProductById(Guid id)
         {
             var product = await _productRepository.GetByIdAsync(id);
 
             if (product == null)
             {
-                return null;
+                return ServiceResult<ProductResponse>.Fail(new ServiceError(ErrorType.NotFound, "Product not found"));
             }
 
             var response = new ProductResponse
@@ -79,29 +80,29 @@ namespace UmkmCRUD.Services
                 CategoryName = product.Category?.CategoryName
             };
 
-            return response;
+            return ServiceResult<ProductResponse>.Success(response);
         }
 
-        public async Task<object> DeleteProduct(Guid id)
+        public async Task<ServiceResult<bool>> DeleteProduct(Guid id)
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null)
             {
-                return false;
+                return ServiceResult<bool>.Fail(new ServiceError(ErrorType.NotFound, "Product not found"));
             }
 
             await _productRepository.DeleteAsync(product);
 
-            return true;
+            return ServiceResult<bool>.Success(true);
         }
 
-        public async Task<ProductResponse> UpdateProduct(Guid id, ProductRequest request)
+        public async Task<ServiceResult<ProductResponse>> UpdateProduct(Guid id, ProductRequest request)
         {
             var product = await _productRepository.GetByIdAsync(id);
 
             if (product == null)
             {
-                return null;
+                return ServiceResult<ProductResponse>.Fail(new ServiceError(ErrorType.NotFound, "Product not found"));
             }
 
             if (request.ProductName != null)
@@ -119,7 +120,7 @@ namespace UmkmCRUD.Services
                 var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId);
                 if (!categoryExists)
                 {
-                    return null;
+                    return ServiceResult<ProductResponse>.Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
                 }
                 product.CategoryId = request.CategoryId;
                 await _productRepository.UpdateAsync(product);
@@ -138,7 +139,7 @@ namespace UmkmCRUD.Services
                 CategoryId = product.CategoryId,
                 CategoryName = product.Category?.CategoryName
             };
-            return response;
+            return ServiceResult<ProductResponse>.Success(response);
         }
     }
 }
