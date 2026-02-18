@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UmkmCRUD.Common;
 
@@ -12,6 +13,7 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost("register")]
     public async Task<ActionResult<ApiResponse<AuthResponse>>> Register(RegisterRequest request)
     {

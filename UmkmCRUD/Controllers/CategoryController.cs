@@ -14,6 +14,7 @@ public class CategoryController : ControllerBase
         _categoryService = categoryService;
     }
 
+    [Authorize(Roles = "Admin,User")]
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<CategoryResponse>>>> GetCategory()
     {
@@ -37,7 +38,7 @@ public class CategoryController : ControllerBase
         });
     }
 
-
+    [Authorize(Roles = "Admin")]
     [HttpPost("create")]
     public async Task<ActionResult<ApiResponse<CategoryResponse>>> CreateCategory(CategoryRequest req)
     {
@@ -93,6 +94,7 @@ public class CategoryController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Admin,User")]
     [HttpGet("{id}")]
     public async Task<ActionResult<ApiResponse<CategoryResponse>>> GetCategoryByID(Guid id)
     {
@@ -115,6 +117,7 @@ public class CategoryController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPatch("{id}")]
     public async Task<ActionResult<ApiResponse<CategoryResponse>>> UpdateCategory(Guid id, CategoryRequest request)
     {

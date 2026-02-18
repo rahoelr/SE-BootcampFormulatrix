@@ -7,7 +7,6 @@ using UmkmCRUD.Services.Interfaces;
 // [Route("api/[controller]")]
 [Route("api/product")]
 [ApiController]
-[Authorize]
 public class ProductController : ControllerBase
 {
     private IProductService _productService;
@@ -16,6 +15,7 @@ public class ProductController : ControllerBase
         _productService = productService;
     }
 
+    [Authorize(Roles = "Admin,User")]
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IEnumerable<ProductResponse>>>> GetProduct()
     {
@@ -39,6 +39,7 @@ public class ProductController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Admin,User")]
     [HttpGet("{id}")]
     public async Task<ActionResult<ApiResponse<ProductResponse>>> GetProductById(Guid id)
     {
@@ -62,6 +63,7 @@ public class ProductController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost("create")]
     public async Task<ActionResult<ApiResponse<ProductResponse>>> Create(ProductRequest request)
     {
@@ -95,6 +97,7 @@ public class ProductController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPatch("{id}")]
     public async Task<ActionResult<ApiResponse<ProductResponse>>> UpdateProduct(Guid id, ProductRequest req)
     {
@@ -126,6 +129,7 @@ public class ProductController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteProduct(Guid id)
     {
