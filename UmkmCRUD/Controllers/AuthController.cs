@@ -39,7 +39,7 @@ public class AuthController : ControllerBase
         {
             Success = true,
             Message = "Register success",
-            Data = result.Data
+            // Data = result.Data
         });
     }
 

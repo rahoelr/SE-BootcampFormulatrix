@@ -43,12 +43,17 @@ public class AuthService
                 new ServiceError(ErrorType.Validation, result.Errors.First().Description));
         }
 
-        var token = GenerateJwtToken(user);
+        await _userManager.AddToRoleAsync(user, AppRoles.User);
+        
+        var roles = await _userManager.GetRolesAsync(user);
+
+        var token = GenerateJwtToken(user, roles);
 
         var response = new AuthResponse
         {
             Token = token,
-            Email = user.Email
+            Email = user.Email,
+            Roles = roles.ToList()
         };
 
         return ServiceResult<AuthResponse>.Success(response);
@@ -73,19 +78,22 @@ public class AuthService
                 new ServiceError(ErrorType.Validation, "Invalid password"));
         }
 
-        var token = GenerateJwtToken(user);
+        var roles = await _userManager.GetRolesAsync(user);
+
+        var token = GenerateJwtToken(user, roles);
 
         var response = new AuthResponse
         {
             Token = token,
-            Email = user.Email
+            Email = user.Email,
+            Roles = roles.ToList()
         };
 
         return ServiceResult<AuthResponse>.Success(response);
     }
 
 
-    private string GenerateJwtToken(ApplicationUser user)
+    private string GenerateJwtToken(ApplicationUser user, IList<string> roles)
     {
         var jwtSettings = _configuration.GetSection("JwtSettings");
 
@@ -94,6 +102,11 @@ public class AuthService
             new Claim(ClaimTypes.NameIdentifier, user.Id),
             new Claim(ClaimTypes.Email, user.Email)
         };
+
+        foreach (var role in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
 
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(jwtSettings["Key"]));

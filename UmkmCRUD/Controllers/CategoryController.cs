@@ -37,7 +37,7 @@ public class CategoryController : ControllerBase
         });
     }
 
-    [Authorize]
+
     [HttpPost("create")]
     public async Task<ActionResult<ApiResponse<CategoryResponse>>> CreateCategory(CategoryRequest req)
     {
@@ -71,6 +71,7 @@ public class CategoryController : ControllerBase
         });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<ActionResult<ApiResponse<object>>> DeleteCategory(Guid id)
     {
