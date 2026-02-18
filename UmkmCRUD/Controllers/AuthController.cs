@@ -46,7 +46,6 @@ public class AuthController : ControllerBase
     }
 
 
-
     [HttpPost("login")]
     public async Task<ActionResult<ApiResponse<AuthResponse>>> Login(LoginRequest request)
     {
@@ -74,6 +73,37 @@ public class AuthController : ControllerBase
         {
             Success = true,
             Message = "Login success",
+            Data = result.Data
+        });
+    }
+
+    [HttpPost("refresh")]
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> RefreshToken(RefreshTokenRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            return BadRequest(new ApiResponse<AuthResponse>
+            {
+                Success = false,
+                Message = "Refresh token is required"
+            });
+        }
+
+        var result = await _authService.RefreshToken(request.RefreshToken);
+
+        if (!result.IsSuccess)
+        {
+            return Unauthorized(new ApiResponse<AuthResponse>
+            {
+                Success = false,
+                Message = result.Error?.Message
+            });
+        }
+
+        return Ok(new ApiResponse<AuthResponse>
+        {
+            Success = true,
+            Message = "Token refreshed successfully",
             Data = result.Data
         });
     }

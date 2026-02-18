@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -9,9 +10,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace UmkmCRUD.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260218035234_AddRefreshTokenTable")]
+    partial class AddRefreshTokenTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");
@@ -262,17 +265,11 @@ namespace UmkmCRUD.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("Created")
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("Expires")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsRevoked")
                         .HasColumnType("INTEGER");
-
-                    b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("Token")
                         .IsRequired()
@@ -349,13 +346,13 @@ namespace UmkmCRUD.Migrations
 
             modelBuilder.Entity("RefreshToken", b =>
                 {
-                    b.HasOne("ApplicationUser", "ApplicationUser")
+                    b.HasOne("ApplicationUser", "User")
                         .WithMany("RefreshTokens")
                         .HasForeignKey("ApplicationUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("ApplicationUser");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ApplicationUser", b =>
