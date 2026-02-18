@@ -29,12 +29,17 @@ namespace UmkmCRUD.Services
 
         public async Task<ServiceResult<ProductResponse>> CreateProduct(ProductRequest request)
         {
-            var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId);
+            if (!request.CategoryId.HasValue || request.CategoryId.Value == Guid.Empty)
+            {
+                return ServiceResult<ProductResponse>.Fail(
+                    new ServiceError(ErrorType.Validation, "CategoryId is required"));
+            }
 
+            var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId.Value);
             if (!categoryExists)
             {
-                return ServiceResult<ProductResponse>
-                    .Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
+                return ServiceResult<ProductResponse>.Fail(
+                    new ServiceError(ErrorType.NotFound, "Category not found"));
             }
 
             var product = _mapper.Map<Product>(request);
@@ -43,12 +48,14 @@ namespace UmkmCRUD.Services
                 product.Stock = request.Stock.Value;
 
             await _productRepository.AddAsync(product);
+
             await _productRepository.LoadCategoryAsync(product);
 
             var response = _mapper.Map<ProductResponse>(product);
 
             return ServiceResult<ProductResponse>.Success(response);
         }
+
 
         public async Task<ServiceResult<ProductResponse>> GetProductById(Guid id)
         {
@@ -86,7 +93,7 @@ namespace UmkmCRUD.Services
                 return ServiceResult<ProductResponse>.Fail(new ServiceError(ErrorType.NotFound, "Product not found"));
             }
 
-            if (request.ProductName != null)
+            if (!string.IsNullOrWhiteSpace(request.ProductName))
             {
                 product.ProductName = request.ProductName;
             }
@@ -96,21 +103,18 @@ namespace UmkmCRUD.Services
                 product.Stock = request.Stock.Value;
             }
 
-            if (request.CategoryId != Guid.Empty && request.CategoryId != product.CategoryId)
+            if (request.CategoryId.HasValue && request.CategoryId.Value != product.CategoryId)
             {
-                var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId);
+                var categoryExists = await _categoryRepository.ExistsAsync(request.CategoryId.Value);
                 if (!categoryExists)
                 {
                     return ServiceResult<ProductResponse>.Fail(new ServiceError(ErrorType.NotFound, "Category not found"));
                 }
-                product.CategoryId = request.CategoryId;
-                await _productRepository.UpdateAsync(product);
-                await _productRepository.LoadCategoryAsync(product);
+                product.CategoryId = request.CategoryId.Value;
             }
-            else
-            {
-                await _productRepository.UpdateAsync(product);
-            }
+
+            await _productRepository.UpdateAsync(product);
+            await _productRepository.LoadCategoryAsync(product);
 
             var response = _mapper.Map<ProductResponse>(product);
             return ServiceResult<ProductResponse>.Success(response);
